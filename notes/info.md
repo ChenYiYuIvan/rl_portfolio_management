@@ -8,15 +8,17 @@
 Episode = keep policy / value function fixed and apply actions on environment
 
 Loop for episodes:
-    - select subsection of historical data
-    - use them as observation to make actions
-    - store rewards
-    - update policy / value function
+- select subsection of historical data
+- use them as observation to make actions
+- store rewards
+- update policy / value function
 
 
 # Data used
 
-16 stocks from S&P500
+16 stocks from S&P500 ("AAPL", "ATVI", "CMCSA", "COST", "CSX", "DISH", "EA", "EBAY", "FB", "GOOGL", "HAS", "ILMN", "INTC", "MAR", "REGN", "SBUX")
+
+Data taken from https://www.kaggle.com/datasets/camnugent/sandp500/versions/4?resource=download
 
 # Implementation
 
