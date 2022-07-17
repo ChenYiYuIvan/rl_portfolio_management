@@ -1,1 +1,1 @@
-# rl_portfolio_management
+# Chen Yi Yu Ivan - Master Thesis - Reinforcement Learning for Portfolio Management
