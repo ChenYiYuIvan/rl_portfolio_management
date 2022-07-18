@@ -20,6 +20,10 @@ Loop for episodes:
 
 Data taken from https://www.kaggle.com/datasets/camnugent/sandp500/versions/4?resource=download
 
+Data from 2013-02-08 to 2018-02-07:
+- training set: 2013-02-08 to 2016-02-07
+- testing set: 2016-02-08 to 2018-02-07
+
 # Implementation
 
 Time step = 1 day
@@ -33,3 +37,7 @@ Portfolio weights = fraction of portfolio value invested in a given stock
 Action = new portfolio weights
 
 Also include cash as a stock -> price relative vector = 1
+
+Action depends on the past N observations (from today - N days to yesterday)
+
+Idea -> Try to also use opening value of today
