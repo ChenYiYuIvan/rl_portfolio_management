@@ -52,6 +52,7 @@ class Portfolio(gym.Env):
         info = self.parse_info(obs, reward, reward_info, done)
         self.infos.append(info)
         self.weights = new_weights
+        self.port_value = info['port_value_new']
         
         return obs, reward, info, done
 
@@ -70,11 +71,17 @@ class Portfolio(gym.Env):
 
 
     def render(self, mode='human', close=False):
-        # render environment to the screen
-        df_info = pd.DataFrame(self.infos)
-        df_info['date'] = pd.to_datetime(df_info['date'], format='%Y-%m-%d')
-        df_info.set_index('date', inplace=True)
-        df_info[['port_value_new', 's&p500']].plot(fig=plt.gcf(), rot=30)
+        # plot value of portfolio and compare with value of market (~ S&P500 ETF)
+        df = [{'date': info['date'], 'portfolio': info['port_value_new'], 'market': snp} 
+            for info, snp in zip(self.infos, self.market.snp[:,3])]
+        df = pd.DataFrame(df)
+
+        # scale value of market to have same initial value as portfolio
+        # only use closing values
+        df['market'] = df['market'].apply(lambda x: x / self.market.snp[0,3] * self.init_port_value)
+        df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+        df.set_index('date', inplace=True)
+        df.plot(fig=plt.gcf(), rot=30)
 
 
     def get_reward(self, obs, action):
@@ -95,6 +102,7 @@ class Portfolio(gym.Env):
 
         # TODO: wrong, fix (fixed point iteration) 
         trans_cost = port_value_old_end * self.trading_cost * np.abs(weights_new - weights_old_end).sum()
+        assert trans_cost < port_value_old_end, 'Transaction cost is bigger than current portfolio value'
 
         port_value_new = port_value_old_end - trans_cost
 
