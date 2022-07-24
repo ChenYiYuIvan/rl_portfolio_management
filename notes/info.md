@@ -8,7 +8,7 @@
 Episode = keep policy / value function fixed and apply actions on environment
 
 Loop for episodes:
-- select subsection of historical data
+- select [subsection of / all of] historical data
 - use them as observation to make actions
 - store rewards
 - update policy / value function
@@ -32,12 +32,23 @@ Observation = {start, end, lowest, highest, volume} for single day
 
 Price relative vector = End value / Start value
 
+Assumption: end price == start price of next day
+
 Portfolio weights = fraction of portfolio value invested in a given stock
 
-Action = new portfolio weights
+Action = new portfolio weights (calculated end of time period, valid for next time period)
 
 Also include cash as a stock -> price relative vector = 1
 
 Action depends on the past N observations (from today - N days to yesterday)
 
+Rebalancing for time interval t+1 is done at closing of time interval t, which means the 
+
 Idea -> Try to also use opening value of today
+
+Flow $(t-1 \rightarrow t) ==$ period t:
+- have portfolio with weights $w_{t-1}$ and value v
+- see open/high/low/close values of timestep $t-1$
+- weights $w_{t-1}$ change to new weights $a_{t-1}$
+- update weights to $w_t$, compute trading cost $\mu_t$, new portfolio value v and obtain reward $r_t$
+- $t \leftarrow t+1$
