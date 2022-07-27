@@ -18,6 +18,18 @@ date_list = snp.index.astype(str).tolist()
 snp = snp.drop(columns=['Adj Close']).to_numpy()
 
 
+# in caso ci siano problemi con yfinance
+if snp.shape[0] == 0:
+    date_list = []
+    with open("data/AAPL_data.csv", 'r') as f:
+        data = csv.reader(f)
+        header = next(data)
+        for row in data:
+            date_list.append(row[0])
+
+    snp = np.ones((1000,5))
+
+
 stock_names = os.listdir('data')
 stock_names = [name.split('_')[0] for name in stock_names]
 

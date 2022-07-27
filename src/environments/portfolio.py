@@ -44,7 +44,7 @@ class Portfolio(gym.Env):
         # execute 1 time step within the environment
         # action = new portfolio weights
 
-        obs, done = self.market.step()  # observe open/.../close price of stocks
+        obs, done, _ = self.market.step()  # observe open/.../close price of stocks
         new_weights = softmax(action)  # new portfolio weights (sum = 1)
         reward, reward_info = self.get_reward(obs, new_weights)  # compute reward of action
 
@@ -72,7 +72,7 @@ class Portfolio(gym.Env):
 
     def render(self, mode='human', close=False):
         # plot value of portfolio and compare with value of market (~ S&P500 ETF)
-        df = [{'date': info['date'], 'portfolio': info['port_value_new'], 'market': snp} 
+        df = [{'date': info['date'], 'portfolio': info['port_value_old'], 'market': snp} 
             for info, snp in zip(self.infos, self.market.snp[:,3])]
         df = pd.DataFrame(df)
 
