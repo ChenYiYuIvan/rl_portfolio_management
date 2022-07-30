@@ -51,3 +51,7 @@ for stock in stock_names:
     hist_data.append(stock_data)
 
 hist_data = np.array(hist_data)
+
+# add cash info
+cash_data = np.ones((1, hist_data.shape[1], hist_data.shape[2]))
+hist_data = np.concatenate((cash_data, hist_data), axis=0)

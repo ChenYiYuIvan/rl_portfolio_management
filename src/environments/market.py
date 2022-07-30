@@ -31,11 +31,7 @@ class Market():
             self.stock_names = stock_names
 
         # to avoid data leakage during training, store only the required data
-        stock_idxs = [data_utils.stock_names.index(stock) for stock in self.stock_names]
-        self.data = data_utils.hist_data[stock_idxs, self.start_idx - self.window_length + 1 : self.end_idx + 1, :]
-
-        # opening price of next day to update weights
-        self.future = data_utils.hist_data[stock_idxs, self.start_idx + 1 : self.end_idx + 2, 0]
+        self.data = data_utils.hist_data[:, self.start_idx - self.window_length + 1 : self.end_idx + 2, :]
 
         # S&P500 ETF values
         self.snp = data_utils.snp[self.start_idx - self.window_length + 1 : self.end_idx + 1, :]
@@ -45,26 +41,22 @@ class Market():
 
     def step(self):
         # execute 1 time step within the environment
-
-        obs = self.data[:, self.next_step : self.next_step + self.window_length, :]
-        future = self.future[:, self.next_step]
-        
-        # add cash to price history and current price
-        obs_cash = np.ones((1, self.window_length, obs.shape[2]))
-        assert obs.shape[1] == obs_cash.shape[1], 'You have gone past the end of simulation'
-
-        obs = np.concatenate((obs_cash, obs), axis=0)
-        future = np.insert(future, 0, 1)
+        curr_obs = self.data[:, self.next_step : self.next_step + self.window_length, :]
+        next_obs = self.data[:, self.next_step + 1 : self.next_step + self.window_length + 1, :]
 
         self.next_step += 1
         done = self.next_step >= self.end_idx - self.start_idx + 1  # if true, it means simulation has reached end date
 
-        return obs, done, future
+        return curr_obs, next_obs, done
 
 
     def reset(self):
         # reset environment to initial state
         self.next_step = 0
+
+        curr_obs = self.data[:, self.next_step : self.next_step + self.window_length, :]
+
+        return curr_obs
 
 
     def step_to_date(self, step = None):
