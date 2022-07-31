@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-from src.environments.market import Market
+from .market import Market
 from scipy.special import softmax
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -70,7 +70,7 @@ class Portfolio(gym.Env):
 
         # 3: end of day t - just after rebalancing (due to action taken)
         weights3 = softmax(action)  # new portfolio weights (sum = 1)
-        trans_cost = port_value2 * self.trading_cost * np.abs(weights3 - weights2).sum()
+        trans_cost = self._get_trans_cost(port_value2, weights2, weights3)
         assert trans_cost < port_value2, 'Transaction cost is bigger than current portfolio value'
         port_value3 = port_value2 - trans_cost
 
@@ -100,6 +100,7 @@ class Portfolio(gym.Env):
             'date': self.market.step_to_date(),
             'curr_obs': curr_obs,
             'next_obs': next_obs,
+            'action': action,
             'weights_old': weights1,
             'weights_new': weights_end,
             'cost': trans_cost,
@@ -119,13 +120,22 @@ class Portfolio(gym.Env):
         return reward, reward_info
 
 
+    def _get_trans_cost(self, port_value, weights_old, weights_new):
+        # initial value
+        trans_cost = port_value * self.trading_cost * np.abs(weights_new - weights_old).sum()
+
+        # TODO: implement fixed point iteration
+
+        return trans_cost
+
+
     def reset(self):
         # reset environment to initial state
 
         self.infos = []
 
         # assume that starting portfolio is all cash
-        self.weights = np.array([1] + [0 for i in range(len(self.stock_names))])
+        self.weights = np.array([1] + [0 for _ in range(len(self.stock_names))])
         self.port_value = self.init_port_value # initial value of portfolio
 
         curr_obs = self.market.reset()
