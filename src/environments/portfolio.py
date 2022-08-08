@@ -69,7 +69,8 @@ class Portfolio(gym.Env):
         port_value2 = port_value1 * np.dot(relative_price, weights1)
 
         # 3: end of day t - just after rebalancing (due to action taken)
-        weights3 = softmax(action)  # new portfolio weights (sum = 1)
+        # weights3 = softmax(action)  # new portfolio weights (sum = 1)
+        weights3 = action
         trans_cost = self._get_trans_cost(port_value2, weights2, weights3)
         assert trans_cost < port_value2, 'Transaction cost is bigger than current portfolio value'
         port_value3 = port_value2 - trans_cost

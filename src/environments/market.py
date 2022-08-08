@@ -1,6 +1,6 @@
 from ..utils import data_utils
 import numpy as np
-from copy import copy
+from copy import deepcopy
 
 class Market():
     
@@ -42,8 +42,8 @@ class Market():
 
     def step(self):
         # execute 1 time step within the environment
-        curr_obs = copy(self.data[:, self.next_step : self.next_step + self.window_length, :])
-        next_obs = copy(self.data[:, self.next_step + 1 : self.next_step + self.window_length + 1, :])
+        curr_obs = deepcopy(self.data[:, self.next_step : self.next_step + self.window_length, :])
+        next_obs = deepcopy(self.data[:, self.next_step + 1 : self.next_step + self.window_length + 1, :])
 
         self.next_step += 1
         done = self.next_step >= self.end_idx - self.start_idx + 1  # if true, it means simulation has reached end date
@@ -55,7 +55,7 @@ class Market():
         # reset environment to initial state
         self.next_step = 0
 
-        curr_obs = copy(self.data[:, self.next_step : self.next_step + self.window_length, :])
+        curr_obs = deepcopy(self.data[:, self.next_step : self.next_step + self.window_length, :])
 
         return curr_obs
 

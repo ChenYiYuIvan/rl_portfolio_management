@@ -11,13 +11,22 @@ from .critic import Critic
 from .replay_buffer import ReplayBuffer
 from .noise import OrnsteinUhlenbeckActionNoise
 
+import tqdm
+import wandb
+import os
+
 
 class DDPG():
 
-    def __init__(self, state_dim, action_dim, args):
+    def __init__(self, env, args):
         
-        self.state_dim = state_dim
-        self.action_dim = action_dim
+        if args.seed > 0:
+            self.seed(args.seed)
+
+        self.env = env
+
+        self.state_dim = self.env.observation_space.shape
+        self.action_dim = self.env.action_space.shape[0]
 
         self.actor = Actor()
         self.actor_target = Actor()
@@ -39,20 +48,24 @@ class DDPG():
         self.actor_noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(self.action_dim))
 
         # hyper-parameters
+        self.num_episodes = args.num_episodes
         self.batch_size = args.batch_size
         self.tau = args.tau
-        self.discount = args.discount
-        self.depsilon = 1.0 / args.epsilon
+        self.gamma = args.gamma
 
         # 
-        self.epsilon = 1.0
-        self.s_t = None # Most recent state
-        self.a_t = None # Most recent action
-        self.is_training = True
+        self.eval_steps = args.eval_steps
 
         # 
         if USE_CUDA:
             self.cuda()
+
+        # freeze target networks, only update manually
+        for param in self.actor_target.parameters():
+            param.requires_grad = False
+
+        for param in self.critic_target.parameters():
+            param.requires_grad = False
 
 
     def update_policy(self):
@@ -63,8 +76,9 @@ class DDPG():
         s_batch, a_batch, r_batch, t_batch, s2_batch = self.buffer.sample_batch(self.batch_size)
 
         # prepare target q batch
-        next_q_values = self.critic_target([s2_batch, self.actor_target(s2_batch)])
-        target_q_batch = r_batch + self.discount * t_batch * next_q_values
+        with torch.no_grad():
+            next_q_values = self.critic_target([s2_batch, self.actor_target(s2_batch)])
+            target_q_batch = r_batch + self.gamma * t_batch * next_q_values
 
         # set gradients to 0
         self.critic_optim.zero_grad()
@@ -79,6 +93,10 @@ class DDPG():
         scaler.scale(value_loss).backward()
         scaler.step(self.critic_optim)
 
+        # freeze critic network to reduce computational resouces
+        for param in self.critic.parameters():
+            param.requires_grad = False
+
         # update actor
         with amp.autocast():
             policy_loss = -self.critic([s_batch, self.actor(s_batch)])
@@ -88,12 +106,125 @@ class DDPG():
         scaler.scale(policy_loss).backward()
         scaler.step(self.actor_optim)
 
+        # unfreeze critic network for next step
+        for param in self.critic.parameters():
+            param.requires_grad = True
+
         # update target netweoks
         update_params(self.actor_target, self.actor, self.tau)
         update_params(self.critic_target, self.critic, self.tau)
 
 
+    def train(self, wandb_inst):
+        print("Begin train!")
+        wandb_inst.watch((self.actor, self.critic))
+        artifact = wandb.Artifact(name='ddpg', type='model')
+
+        # loop over episodes
+        for episode in range(self.num_episodes):
+
+            # logging
+            num_steps = self.env.market.end_idx - self.env.market.start_idx + 1
+            tq = tqdm(total=num_steps)
+            tq.set_description('episode %d' % (episode))
+
+            # set models in trainig mode
+            self.set_train()
+
+            # initial state of environment
+            curr_obs = self.env.reset()  # may need to normalize obs
+
+            # initialize values
+            ep_reward = 0
+
+            # keep sampling until done
+            done = False
+            while not done:
+                # select action
+                if self.buffer.size() >= self.batch_size:
+                    action = self.predict_action(curr_obs)
+                else:
+                    action = self.random_action()
+
+                # step forward environment
+                next_obs, reward, done, info = self.env.step(action)  # may need to normalize obs
+                
+                # add to buffer
+                self.buffer.add(curr_obs, action, reward, done, next_obs)
+
+                # if replay buffer has enough observations
+                if self.buffer.size() >= self.batch_size:
+                    self.update_policy()
+
+                ep_reward += reward
+                curr_obs = next_obs
+
+                tq.update(1)
+                tq.set_postfix(ep_reward='%.6f' % ep_reward)
+
+            tq.close()
+            print(f"Episode reward: {ep_reward}")
+            wandb_inst.log({'episode_reward_train': ep_reward}, step=episode)
+
+            # evaluate model every few episodes
+            if episode % self.eval_steps == self.eval_steps - 1:
+                ep_reward_val = self.eval()
+                print(f"Episode reward - eval: {ep_reward}")
+                wandb_inst.log({'episode_reward_eval': ep_reward_val}, step=episode)
+
+                # save trained model
+                actor_path_name = os.path.join(wandb_inst.config.save_model_path,
+                    f'{wandb_inst.config.model_name}_ep{episode}.pth')
+                torch.save(self.actor)
+                artifact.add_file(actor_path_name, name=f'{wandb_inst.config.model_name}_ep{episode}.pth')
+
+
     def eval(self):
+        print("Begin eval!")
+        self.set_eval()
+
+        # initial state of environment
+        curr_obs = self.env.reset()  # may need to normalize obs
+
+        # initialize values
+        ep_reward = 0
+
+        # keep sampling until done
+        done = False
+        while not done:
+            # select action
+            action = self.predict_action(curr_obs)
+
+            # step forward environment
+            next_obs, reward, done, info = self.env.step(action)  # may need to normalize obs
+
+            ep_reward += reward
+            curr_obs = next_obs
+
+        return ep_reward
+
+
+    def random_action(self):
+        action = torch.rand(17)
+        action = action / action.sum()
+
+        return action
+
+
+    def predict_action(self, obs):
+        action = self.actor(obs) + torch.from_numpy(self.actor_noise())
+
+        return action
+
+
+    def set_train(self):
+        self.actor.train()
+        self.actor_target.train()
+        self.critic.train()
+        self.critic_target.train()
+
+
+    def set_eval(self):
         self.actor.eval()
         self.actor_target.eval()
         self.critic.eval()
@@ -105,3 +236,9 @@ class DDPG():
         self.actor_target.cuda()
         self.critic.cuda()
         self.critic_target.cuda()
+
+
+    def seed(self,s):
+        torch.manual_seed(s)
+        if USE_CUDA:
+            torch.cuda.manual_seed(s)
