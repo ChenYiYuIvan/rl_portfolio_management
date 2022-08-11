@@ -1,16 +1,21 @@
 import gym
 import numpy as np
 from .market import Market
-from scipy.special import softmax
 import pandas as pd
 import matplotlib.pyplot as plt
+import torch
+from ..utils.torch_utils import USE_CUDA
+
 
 class Portfolio(gym.Env):
 
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, start_date, end_date, window_length = 30, stock_names = None, trading_cost = 0.002, continuous = False):
+    def __init__(self, start_date, end_date, window_length=30, stock_names=None, trading_cost=0.002, continuous=False):
         super().__init__()
+        self.device = torch.device("cuda:0" if USE_CUDA else "cpu")
+
+        self.eps = 1e-8
 
         self.continuous = continuous  # bool to use continuous market assumption
 
@@ -21,7 +26,8 @@ class Portfolio(gym.Env):
         self.init_port_value = 1000
 
         if stock_names is None:
-            self.stock_names = ["AAPL", "ATVI", "CMCSA", "COST", "CSX", "DISH", "EA", "EBAY", "FB", "GOOGL", "HAS", "ILMN", "INTC", "MAR", "REGN", "SBUX"]
+            self.stock_names = ["AAPL", "ATVI", "CMCSA", "COST", "CSX", "DISH", "EA",
+                                "EBAY", "FB", "GOOGL", "HAS", "ILMN", "INTC", "MAR", "REGN", "SBUX"]
         else:
             self.stock_names = stock_names
 
@@ -32,12 +38,12 @@ class Portfolio(gym.Env):
         # action space = new portfolio weights
         # no short selling allowed
         self.action_space = gym.spaces.Box(low=-np.inf, high=np.inf,
-            shape=(len(self.stock_names) + 1,), dtype=np.float32)  # include cash
+                                           shape=(len(self.stock_names) + 1,), dtype=np.float32)  # include cash
 
         # observation space = past values of asset prices
         # open, high, low, close, volume -> 5 values
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf,
-            shape=(len(self.stock_names), self.window_length, 5), dtype=np.float32)
+                                                shape=(len(self.stock_names), self.window_length, 5), dtype=np.float32)
 
         self.reset()
 
@@ -46,8 +52,9 @@ class Portfolio(gym.Env):
         # execute 1 time step within the environment
         # action = new portfolio weights
 
-        curr_obs, next_obs, done = self.market.step()  # observe open/.../close price of stocks
-        
+        # observe open/.../close price of stocks
+        curr_obs, next_obs, done = self.market.step()
+
         reward, reward_info = self._take_action(curr_obs, action, next_obs)
 
         return next_obs, reward, done, reward_info
@@ -71,9 +78,9 @@ class Portfolio(gym.Env):
         # 3: end of day t - just after rebalancing (due to action taken)
         # weights3 = softmax(action)  # new portfolio weights (sum = 1)
         weights3 = action
-        trans_cost = self._get_trans_cost(port_value2, weights2, weights3)
-        assert trans_cost < port_value2, 'Transaction cost is bigger than current portfolio value'
-        port_value3 = port_value2 - trans_cost
+        trans_cost = self._get_remaining_value(weights2, weights3)
+        assert trans_cost < 1, 'Transaction cost is bigger than current portfolio value'
+        port_value3 = trans_cost * port_value2
 
         if not self.continuous:
             # 4: start of day t+1 (due to diff between next open and close)
@@ -95,7 +102,7 @@ class Portfolio(gym.Env):
         simple_return = port_value_end / port_value1 - 1
 
         reward = log_return
-        
+
         reward_info = {
             'time_period': self.market.next_step - 1,
             'date': self.market.step_to_date(),
@@ -120,14 +127,17 @@ class Portfolio(gym.Env):
 
         return reward, reward_info
 
-
-    def _get_trans_cost(self, port_value, weights_old, weights_new):
+    def _get_remaining_value(self, weights_old, weights_new, iters=10):
         # initial value
-        trans_cost = port_value * self.trading_cost * np.abs(weights_new - weights_old).sum()
+        remaining_value = self.trading_cost * np.abs(weights_new - weights_old).sum()
 
-        # TODO: implement fixed point iteration
+        # fixed point iteration
+        def cost(mu): return (1 - self.trading_cost*weights_old[0] - (2*self.trading_cost - self.trading_cost**2)*np.sum(
+            np.maximum(0, weights_old[1:] - mu*weights_new[1:]))) / (1 - self.trading_cost*weights_new[0])
+        for _ in range(iters):
+            remaining_value = cost(remaining_value)
 
-        return trans_cost
+        return remaining_value
 
 
     def reset(self):
@@ -137,7 +147,7 @@ class Portfolio(gym.Env):
 
         # assume that starting portfolio is all cash
         self.weights = np.array([1] + [0 for _ in range(len(self.stock_names))])
-        self.port_value = self.init_port_value # initial value of portfolio
+        self.port_value = self.init_port_value  # initial value of portfolio
 
         curr_obs = self.market.reset()
 
@@ -146,8 +156,8 @@ class Portfolio(gym.Env):
 
     def render(self, mode='human', close=False):
         # plot value of portfolio and compare with value of market (~ S&P500 ETF)
-        df = [{'date': info['date'], 'portfolio': info['port_value_new'], 'market': info['s&p500']} 
-            for info in self.infos]
+        df = [{'date': info['date'], 'portfolio': info['port_value_new'], 'market': info['s&p500']}
+              for info in self.infos]
         df = pd.DataFrame(df)
 
         df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')

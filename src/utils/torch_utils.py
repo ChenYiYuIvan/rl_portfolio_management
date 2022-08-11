@@ -2,7 +2,7 @@ import torch
 
 
 USE_CUDA = torch.cuda.is_available()
-FLOAT = torch.cuda.FloatTensor if USE_CUDA else torch.FloatTensor
+FLOAT = torch.float32
 
 
 def copy_params(target, source):

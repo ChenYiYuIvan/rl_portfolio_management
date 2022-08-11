@@ -1,6 +1,6 @@
 import argparse
 import wandb
-from src.environments.portfolio import Portfolio
+from src.environments.portfolio_end import PortfolioEnd
 from src.ddpg.ddpg import DDPG
 
 
@@ -11,6 +11,7 @@ def main(params):
     parser.add_argument('--save_model_path', type=str, default=None, help='path to save model')
     parser.add_argument('--model_name', type=str, default=None, help='name of the model')
 
+    parser.add_argument('--window_length', default=30, type=int, help='window length')
     parser.add_argument('--num_episodes', default=50, type=int, help='number of episodes to train for')
     parser.add_argument('--eval_steps', default=64, type=int, help='how many episodes for every evaluation step')
     parser.add_argument('--batch_size', default=64, type=int, help='minibatch size')
@@ -23,13 +24,13 @@ def main(params):
     args = parser.parse_args(params)
 
     wandb.login()
-    with wandb.init(project="thesis", entity="mldlproj1gr2", config=vars(args)) as run:
+    with wandb.init(project="thesis", entity="mldlproj1gr2", config=vars(args), mode="online") as run:
         config = wandb.config
 
-        start_date = "2013-02-12"
+        start_date = "2013-03-22"
         end_date = "2016-02-05"
 
-        env = Portfolio(start_date, end_date)
+        env = PortfolioEnd(start_date, end_date, window_length=args.window_length)
         ddpg = DDPG(env, config)
 
         ddpg.train(run)
@@ -37,6 +38,7 @@ def main(params):
 
 if __name__ == '__main__':
     params = [
-
+        '--save_model_path', './checkpoints_ddpg',
+        '--model_name', 'ddpg',
     ]
     main(params)

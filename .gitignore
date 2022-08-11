@@ -1,3 +1,9 @@
+# Others
+wandb/
+artifacts
+checkpoints_ddpg
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

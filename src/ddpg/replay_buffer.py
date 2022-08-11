@@ -3,9 +3,11 @@ Source: https://github.com/vermouth1992/deep-learning-playground/blob/master/ten
 """
 from collections import deque
 import random
+from tkinter import N
 import numpy as np
 import warnings
 import torch
+from ..utils.torch_utils import USE_CUDA, FLOAT
 
 
 class ReplayBuffer(object):
@@ -13,6 +15,8 @@ class ReplayBuffer(object):
         """
         The right side of the deque contains the most recent experiences
         """
+        self.device = torch.device("cuda:0" if USE_CUDA else "cpu")
+
         self.buffer_size = buffer_size
         self.count = 0
         self.buffer = deque()
@@ -37,11 +41,23 @@ class ReplayBuffer(object):
         else:
             batch = random.sample(self.buffer, batch_size)
 
-        s_batch = torch.from_numpy(np.array([_[0] for _ in batch]))  # current observation
-        a_batch = torch.from_numpy(np.array([_[1] for _ in batch]))  # action
-        r_batch = torch.from_numpy(np.array([_[2] for _ in batch]))  # reward
-        t_batch = torch.from_numpy(np.array([_[3] for _ in batch]))  # done
-        s2_batch = torch.from_numpy(np.array([_[4] for _ in batch])) # next observation
+        # torch.stack -> np.array
+
+        s_b = [_[0] for _ in batch]  # current observation
+        s_batch = (torch.tensor(np.array([_[0] for _ in s_b]), dtype=FLOAT, device=self.device),
+            torch.tensor(np.array([_[1] for _ in s_b]), dtype=FLOAT, device=self.device))
+
+        a_batch = torch.tensor(np.array([_[1] for _ in batch]), dtype=FLOAT, device=self.device)  # action
+        r_batch = torch.tensor(np.array([_[2] for _ in batch]), dtype=FLOAT, device=self.device)  # reward
+        t_batch = torch.tensor(np.array([_[3] for _ in batch]), dtype=torch.bool, device=self.device)  # done
+
+        # for consistent shape
+        r_batch = r_batch[:, None]
+        t_batch = t_batch[:, None]
+
+        s2_b = [_[4] for _ in batch] # next observation
+        s2_batch = (torch.tensor(np.array([_[0] for _ in s2_b]), dtype=FLOAT, device=self.device),
+            torch.tensor(np.array([_[1] for _ in s2_b]), dtype=FLOAT, device=self.device))
 
         return s_batch, a_batch, r_batch, t_batch, s2_batch
 

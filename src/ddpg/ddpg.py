@@ -11,7 +11,7 @@ from .critic import Critic
 from .replay_buffer import ReplayBuffer
 from .noise import OrnsteinUhlenbeckActionNoise
 
-import tqdm
+from tqdm import tqdm
 import wandb
 import os
 
@@ -24,16 +24,17 @@ class DDPG():
             self.seed(args.seed)
 
         self.env = env
+        self.device = self.env.device
 
         self.state_dim = self.env.observation_space.shape
         self.action_dim = self.env.action_space.shape[0]
 
-        self.actor = Actor()
-        self.actor_target = Actor()
+        self.actor = Actor(self.state_dim[2], self.state_dim[1])
+        self.actor_target = Actor(self.state_dim[2], self.state_dim[1])
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
 
-        self.critic = Critic()
-        self.critic_target = Critic()
+        self.critic = Critic(self.state_dim[2], self.action_dim, self.state_dim[1])
+        self.critic_target = Critic(self.state_dim[2], self.action_dim, self.state_dim[1])
         self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic)
 
         self.loss = nn.MSELoss()
@@ -57,6 +58,7 @@ class DDPG():
         self.eval_steps = args.eval_steps
 
         # 
+        self.device = torch.device("cuda:0" if USE_CUDA else "cpu")
         if USE_CUDA:
             self.cuda()
 
@@ -68,47 +70,46 @@ class DDPG():
             param.requires_grad = False
 
 
-    def update_policy(self):
-
-        scaler = amp.GradScaler()
+    def update_policy(self, scaler):
 
         # sample batch
         s_batch, a_batch, r_batch, t_batch, s2_batch = self.buffer.sample_batch(self.batch_size)
-
-        # prepare target q batch
-        with torch.no_grad():
-            next_q_values = self.critic_target([s2_batch, self.actor_target(s2_batch)])
-            target_q_batch = r_batch + self.gamma * t_batch * next_q_values
 
         # set gradients to 0
         self.critic_optim.zero_grad()
         self.actor_optim.zero_grad()
 
-        # update critic
+        self.actor.requires_grad(False)
+      
         with amp.autocast():
-            q_batch = self.critic([s_batch, a_batch])  #maybe torch.cat instead of []
+            # prepare target q batch
+            next_q_values = self.critic_target(*s2_batch, self.actor_target(*s2_batch))
+            target_q_batch = r_batch + self.gamma * t_batch * next_q_values
+
+            # update critic
+            q_batch = self.critic(*s_batch, a_batch)
             value_loss = self.loss(q_batch, target_q_batch)
 
         # backward pass for critic
-        scaler.scale(value_loss).backward()
+        scaler.scale(value_loss).backward(retain_graph=True)
         scaler.step(self.critic_optim)
 
-        # freeze critic network to reduce computational resouces
-        for param in self.critic.parameters():
-            param.requires_grad = False
+        self.actor.requires_grad(True)
+        self.critic.requires_grad(False)
 
         # update actor
         with amp.autocast():
-            policy_loss = -self.critic([s_batch, self.actor(s_batch)])
-            policy_loss = policy_loss.mean()
+            policy_loss = -self.critic(*s_batch, self.actor(*s_batch))
+            policy_loss = torch.mean(policy_loss)
 
         # backward pass for actor
-        scaler.scale(policy_loss).backward()
+        scaler.scale(policy_loss).backward(retain_graph=True)
         scaler.step(self.actor_optim)
 
-        # unfreeze critic network for next step
-        for param in self.critic.parameters():
-            param.requires_grad = True
+        # update
+        scaler.update()
+
+        self.critic.requires_grad(True)
 
         # update target netweoks
         update_params(self.actor_target, self.actor, self.tau)
@@ -119,6 +120,8 @@ class DDPG():
         print("Begin train!")
         wandb_inst.watch((self.actor, self.critic))
         artifact = wandb.Artifact(name='ddpg', type='model')
+
+        scaler = amp.GradScaler()
 
         # loop over episodes
         for episode in range(self.num_episodes):
@@ -154,7 +157,7 @@ class DDPG():
 
                 # if replay buffer has enough observations
                 if self.buffer.size() >= self.batch_size:
-                    self.update_policy()
+                    self.update_policy(scaler)
 
                 ep_reward += reward
                 curr_obs = next_obs
@@ -205,14 +208,25 @@ class DDPG():
 
 
     def random_action(self):
-        action = torch.rand(17)
+        action = np.random.rand(17)
         action = action / action.sum()
 
         return action
 
 
     def predict_action(self, obs):
-        action = self.actor(obs) + torch.from_numpy(self.actor_noise())
+        a,b = obs
+        a = torch.tensor(a, dtype=FLOAT, device=self.device)
+        b = torch.tensor(b, dtype=FLOAT, device=self.device)
+        action = self.actor(a, b)
+        if USE_CUDA:
+            action = action.detach().cpu().numpy()
+        else:
+            action = action.detach().numpy()
+        action += self.actor_noise()
+        
+        action = np.clip(action, 0, 1)
+        action = action / action.sum()
 
         return action
 
