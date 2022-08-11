@@ -1,3 +1,4 @@
+from sqlite3 import NotSupportedError
 import numpy as np
 import torch
 import torch.nn as nn
@@ -18,16 +19,16 @@ import os
 
 class DDPG():
 
-    def __init__(self, env, args):
+    def __init__(self, env_train, env_test, args):
         
         if args.seed > 0:
             self.seed(args.seed)
 
-        self.env = env
-        self.device = self.env.device
+        self.env_train = env_train
+        self.env_test = env_test
 
-        self.state_dim = self.env.observation_space.shape
-        self.action_dim = self.env.action_space.shape[0]
+        self.state_dim = self.env_train.observation_space.shape
+        self.action_dim = self.env_train.action_space.shape[0]
 
         self.actor = Actor(self.state_dim[2], self.state_dim[1])
         self.actor_target = Actor(self.state_dim[2], self.state_dim[1])
@@ -121,13 +122,17 @@ class DDPG():
         wandb_inst.watch((self.actor, self.critic))
         artifact = wandb.Artifact(name='ddpg', type='model')
 
+        # creating directory to store models if it doesn't exist
+        if not os.path.isdir(wandb_inst.config.save_model_path):
+            os.mkdir(wandb_inst.config.save_model_path)
+
         scaler = amp.GradScaler()
 
         # loop over episodes
         for episode in range(self.num_episodes):
 
             # logging
-            num_steps = self.env.market.end_idx - self.env.market.start_idx + 1
+            num_steps = self.env_train.market.end_idx - self.env_train.market.start_idx + 1
             tq = tqdm(total=num_steps)
             tq.set_description('episode %d' % (episode))
 
@@ -135,7 +140,7 @@ class DDPG():
             self.set_train()
 
             # initial state of environment
-            curr_obs = self.env.reset()  # may need to normalize obs
+            curr_obs = self.env_train.reset()  # may need to normalize obs
 
             # initialize values
             ep_reward = 0
@@ -145,12 +150,12 @@ class DDPG():
             while not done:
                 # select action
                 if self.buffer.size() >= self.batch_size:
-                    action = self.predict_action(curr_obs)
+                    action = self.predict_action(curr_obs, mode='train')
                 else:
                     action = self.random_action()
 
                 # step forward environment
-                next_obs, reward, done, info = self.env.step(action)  # may need to normalize obs
+                next_obs, reward, done, info = self.env_train.step(action)  # may need to normalize obs
                 
                 # add to buffer
                 self.buffer.add(curr_obs, action, reward, done, next_obs)
@@ -178,16 +183,25 @@ class DDPG():
                 # save trained model
                 actor_path_name = os.path.join(wandb_inst.config.save_model_path,
                     f'{wandb_inst.config.model_name}_ep{episode}.pth')
-                torch.save(self.actor)
+                torch.save(self.actor.state_dict(), actor_path_name)
                 artifact.add_file(actor_path_name, name=f'{wandb_inst.config.model_name}_ep{episode}.pth')
 
+            wandb_inst.log_artifact(artifact)
 
-    def eval(self):
+
+    def eval(self, mode = 'test', render = False):
         print("Begin eval!")
         self.set_eval()
 
+        if mode == 'train' or mode == 'test_on_train':
+            env = self.env_train
+        elif mode == 'test':
+            env = self.env_test
+        else:
+            raise NotSupportedError
+
         # initial state of environment
-        curr_obs = self.env.reset()  # may need to normalize obs
+        curr_obs = env.reset()  # may need to normalize obs
 
         # initialize values
         ep_reward = 0
@@ -196,25 +210,28 @@ class DDPG():
         done = False
         while not done:
             # select action
-            action = self.predict_action(curr_obs)
+            action = self.predict_action(curr_obs, mode)
 
             # step forward environment
-            next_obs, reward, done, info = self.env.step(action)  # may need to normalize obs
+            next_obs, reward, done, info = env.step(action)  # may need to normalize obs
 
             ep_reward += reward
             curr_obs = next_obs
+
+        if render:
+            env.render()
 
         return ep_reward
 
 
     def random_action(self):
-        action = np.random.rand(17)
-        action = action / action.sum()
+        action = self.env_train.action_space.sample()
+        action /= action.sum()
 
         return action
 
 
-    def predict_action(self, obs):
+    def predict_action(self, obs, mode = 'test'):
         a,b = obs
         a = torch.tensor(a, dtype=FLOAT, device=self.device)
         b = torch.tensor(b, dtype=FLOAT, device=self.device)
@@ -223,12 +240,18 @@ class DDPG():
             action = action.detach().cpu().numpy()
         else:
             action = action.detach().numpy()
-        action += self.actor_noise()
+
+        if mode == 'train': # add exploration
+            action += self.actor_noise()
         
         action = np.clip(action, 0, 1)
-        action = action / action.sum()
+        action /= action.sum()
 
         return action
+
+
+    def load_actor_model(self, path):
+        self.actor.load_state_dict(torch.load(path))
 
 
     def set_train(self):

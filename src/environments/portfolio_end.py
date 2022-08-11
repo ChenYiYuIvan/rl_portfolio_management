@@ -49,9 +49,9 @@ class PortfolioEnd(Portfolio):
 
         # 2
         weights2 = action
-        trans_cost = self._get_remaining_value(weights1, weights2)
-        assert trans_cost < 1, 'Transaction cost is bigger than current portfolio value'
-        port_value2 = trans_cost * port_value1
+        remaining_value = self._get_remaining_value(weights1, weights2)
+        assert remaining_value <= 1, 'Transaction cost is bigger than current portfolio value'
+        port_value2 = remaining_value * port_value1
 
         # 3
         curr_close = curr_obs[:, -1, 3]
@@ -74,7 +74,7 @@ class PortfolioEnd(Portfolio):
             'action': action,
             'weights_old': weights1,
             'weights_new': weights3,
-            'cost': trans_cost,
+            'cost': 1 - remaining_value,
             'port_value_old': port_value1,
             'port_value_new': port_value3,
             'log_return': log_return,

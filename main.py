@@ -11,9 +11,18 @@ def main(params):
     parser.add_argument('--save_model_path', type=str, default=None, help='path to save model')
     parser.add_argument('--model_name', type=str, default=None, help='name of the model')
 
+    parser.add_argument('--start_train', type=str, default="2013-03-22", help='starting date of training data')
+    parser.add_argument('--end_train', type=str, default="2016-02-05", help='end date date of training data')
+    parser.add_argument('--start_test', type=str, default="2016-03-22", help='starting date of testing data')
+    parser.add_argument('--end_test', type=str, default="2018-02-07", help='end date of testing data')
     parser.add_argument('--window_length', default=30, type=int, help='window length')
-    parser.add_argument('--num_episodes', default=50, type=int, help='number of episodes to train for')
-    parser.add_argument('--eval_steps', default=64, type=int, help='how many episodes for every evaluation step')
+    parser.add_argument('--stock_names', type=str, default=None, help='name of stocks in the market')
+    parser.add_argument('--trading_cost', default=0.002, type=float, help='trading cost')
+    parser.add_argument('--continuous', dest='continuous', default=False, action='store_true',
+                        help='True to include continuous market assumption, False otherwise')
+
+    parser.add_argument('--num_episodes', default=100, type=int, help='number of episodes to train for')
+    parser.add_argument('--eval_steps', default=5, type=int, help='how many episodes for every evaluation step')
     parser.add_argument('--batch_size', default=64, type=int, help='minibatch size')
     parser.add_argument('--tau', default=0.001, type=float, help='moving average for target network')
     parser.add_argument('--gamma', default=0.99, type=float, help='')
@@ -27,13 +36,14 @@ def main(params):
     with wandb.init(project="thesis", entity="mldlproj1gr2", config=vars(args), mode="online") as run:
         config = wandb.config
 
-        start_date = "2013-03-22"
-        end_date = "2016-02-05"
+        env_train = PortfolioEnd(config.start_train, config.end_train, config.window_length, config.stock_names, config.trading_cost, config.continuous)
+        env_test = PortfolioEnd(config.start_test, config.end_test, config.window_length, config.stock_names, config.trading_cost, config.continuous)
 
-        env = PortfolioEnd(start_date, end_date, window_length=args.window_length)
-        ddpg = DDPG(env, config)
+        ddpg = DDPG(env_train, env_test, config)
 
-        ddpg.train(run)
+        #ddpg.train(run)
+        ddpg.load_actor_model('./checkpoints_ddpg/ddpg_ep64.pth')
+        ddpg.eval(render = True)
 
 
 if __name__ == '__main__':

@@ -13,7 +13,6 @@ class Portfolio(gym.Env):
 
     def __init__(self, start_date, end_date, window_length=30, stock_names=None, trading_cost=0.002, continuous=False):
         super().__init__()
-        self.device = torch.device("cuda:0" if USE_CUDA else "cpu")
 
         self.eps = 1e-8
 
@@ -23,7 +22,7 @@ class Portfolio(gym.Env):
         self.end_date = end_date
         self.window_length = window_length
 
-        self.init_port_value = 1000
+        self.init_port_value = 1
 
         if stock_names is None:
             self.stock_names = ["AAPL", "ATVI", "CMCSA", "COST", "CSX", "DISH", "EA",
@@ -37,7 +36,7 @@ class Portfolio(gym.Env):
 
         # action space = new portfolio weights
         # no short selling allowed
-        self.action_space = gym.spaces.Box(low=-np.inf, high=np.inf,
+        self.action_space = gym.spaces.Box(low=0, high=1,
                                            shape=(len(self.stock_names) + 1,), dtype=np.float32)  # include cash
 
         # observation space = past values of asset prices
@@ -78,9 +77,10 @@ class Portfolio(gym.Env):
         # 3: end of day t - just after rebalancing (due to action taken)
         # weights3 = softmax(action)  # new portfolio weights (sum = 1)
         weights3 = action
-        trans_cost = self._get_remaining_value(weights2, weights3)
-        assert trans_cost < 1, 'Transaction cost is bigger than current portfolio value'
-        port_value3 = trans_cost * port_value2
+        remaining_value = self._get_remaining_value(weights2, weights3)
+        assert remaining_value >= 0, 'Transaction cost is bigger than current portfolio value'
+        assert remaining_value <= 1, 'Transaction cost less than 0'
+        port_value3 = remaining_value * port_value2
 
         if not self.continuous:
             # 4: start of day t+1 (due to diff between next open and close)
@@ -111,7 +111,7 @@ class Portfolio(gym.Env):
             'action': action,
             'weights_old': weights1,
             'weights_new': weights_end,
-            'cost': trans_cost,
+            'cost': 1 - remaining_value,
             'port_value_old': port_value1,
             'port_value_new': port_value_end,
             'log_return': log_return,
@@ -136,7 +136,16 @@ class Portfolio(gym.Env):
             np.maximum(0, weights_old[1:] - mu*weights_new[1:]))) / (1 - self.trading_cost*weights_new[0])
         for _ in range(iters):
             remaining_value = cost(remaining_value)
-
+        
+        # barely above 1
+        diff_up = np.maximum(0, remaining_value - 1)
+        if diff_up > 0 and diff_up < self.eps:
+            remaining_value = 1
+        # barely below 0
+        diff_down = np.minimum(0, remaining_value)
+        if diff_down < 0 and diff_down > -self.eps:
+            remaining_value = 0
+        
         return remaining_value
 
 
