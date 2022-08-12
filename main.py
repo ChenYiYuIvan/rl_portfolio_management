@@ -7,7 +7,7 @@ from src.ddpg.ddpg import DDPG
 def main(params):
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', default=-1, type=int, help='')
+    parser.add_argument('--seed', default=42, type=int, help='')
     parser.add_argument('--save_model_path', type=str, default=None, help='path to save model')
     parser.add_argument('--model_name', type=str, default=None, help='name of the model')
 
@@ -20,14 +20,16 @@ def main(params):
     parser.add_argument('--trading_cost', default=0.002, type=float, help='trading cost')
     parser.add_argument('--continuous', dest='continuous', default=False, action='store_true',
                         help='True to include continuous market assumption, False otherwise')
+    parser.add_argument('--normalize', dest='normalize', default=False, action='store_true',
+                        help='True to normalize data, False otherwise')
 
-    parser.add_argument('--num_episodes', default=100, type=int, help='number of episodes to train for')
-    parser.add_argument('--eval_steps', default=5, type=int, help='how many episodes for every evaluation step')
+    parser.add_argument('--num_episodes', default=500, type=int, help='number of episodes to train for')
+    parser.add_argument('--eval_steps', default=20, type=int, help='how many episodes for every evaluation step')
     parser.add_argument('--batch_size', default=64, type=int, help='minibatch size')
     parser.add_argument('--tau', default=0.001, type=float, help='moving average for target network')
     parser.add_argument('--gamma', default=0.99, type=float, help='')
-    parser.add_argument('--buffer_size', default=6000000, type=int, help='buffer size')
-    parser.add_argument('--lr_actor', default=0.001, type=float, help='actor learning rate')
+    parser.add_argument('--buffer_size', default=100000, type=int, help='buffer size')
+    parser.add_argument('--lr_actor', default=0.0001, type=float, help='actor learning rate')
     parser.add_argument('--lr_critic', default=0.001, type=float, help='critic learning rate')
 
     args = parser.parse_args(params)
@@ -36,14 +38,14 @@ def main(params):
     with wandb.init(project="thesis", entity="mldlproj1gr2", config=vars(args), mode="online") as run:
         config = wandb.config
 
-        env_train = PortfolioEnd(config.start_train, config.end_train, config.window_length, config.stock_names, config.trading_cost, config.continuous)
-        env_test = PortfolioEnd(config.start_test, config.end_test, config.window_length, config.stock_names, config.trading_cost, config.continuous)
+        env_train = PortfolioEnd(config.start_train, config.end_train, config.window_length, config.stock_names, config.trading_cost, config.continuous, config.normalize)
+        env_test = PortfolioEnd(config.start_test, config.end_test, config.window_length, config.stock_names, config.trading_cost, config.continuous, config.normalize)
 
         ddpg = DDPG(env_train, env_test, config)
 
-        #ddpg.train(run)
-        ddpg.load_actor_model('./checkpoints_ddpg/ddpg_ep64.pth')
-        ddpg.eval(render = True)
+        ddpg.train(run)
+        #ddpg.load_actor_model('./checkpoints_ddpg/ddpg_ep64.pth')
+        #ddpg.eval(render = True)
 
 
 if __name__ == '__main__':

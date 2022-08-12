@@ -1,3 +1,4 @@
+from locale import normalize
 from .portfolio import Portfolio
 import numpy as np
 import gym
@@ -5,9 +6,9 @@ import gym
 
 class PortfolioEnd(Portfolio):
 
-    def __init__(self, start_date, end_date, window_length=30, stock_names=None, trading_cost=0.002, continuous=False):
+    def __init__(self, start_date, end_date, window_length=30, stock_names=None, trading_cost=0.002, continuous=False, normalize=True):
         super().__init__(start_date, end_date, window_length,
-                         stock_names, trading_cost, continuous)
+                         stock_names, trading_cost, continuous, normalize)
 
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf,
                                                 shape=(len(self.stock_names), self.window_length, 3), dtype=np.float32)
@@ -18,7 +19,7 @@ class PortfolioEnd(Portfolio):
         # -> state s_{t+1} = f(s_t, a_t)
 
         # 1: price at end of day t before rebalancing
-        # 2: rebalancing at end of dat t
+        # 2: rebalancing at end of day t
         # 3: price at end of day t+1 before rebalancing
 
 
@@ -36,6 +37,9 @@ class PortfolioEnd(Portfolio):
 
         next_obs = next_obs[:, :, 1:4]
         next_obs = np.transpose(next_obs, (2, 0, 1))
+        if self.normalize:
+            close_price = next_obs[2,:,-1]
+            next_obs /= close_price[None, :, None]
         next_state = (next_obs, self.weights)
 
         return next_state, reward, done, reward_info
@@ -114,6 +118,9 @@ class PortfolioEnd(Portfolio):
         # s_t = (X_t, w_{t-1}^{end}})
         curr_obs = curr_obs[:, :, 1:4]
         curr_obs = np.transpose(curr_obs, (2, 0, 1))
+        if self.normalize:
+            close_price = curr_obs[2,:,-1]
+            curr_obs /= close_price[None, :, None]
         curr_state = (curr_obs, self.weights)
 
         return curr_state

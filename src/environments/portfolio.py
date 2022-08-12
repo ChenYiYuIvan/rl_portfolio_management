@@ -11,12 +11,13 @@ class Portfolio(gym.Env):
 
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, start_date, end_date, window_length=30, stock_names=None, trading_cost=0.002, continuous=False):
+    def __init__(self, start_date, end_date, window_length=30, stock_names=None, trading_cost=0.002, continuous=False, normalize=True):
         super().__init__()
 
         self.eps = 1e-8
 
         self.continuous = continuous  # bool to use continuous market assumption
+        self.normalize = normalize  # divide price matrix by close price of time t
 
         self.start_date = start_date
         self.end_date = end_date

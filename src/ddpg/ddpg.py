@@ -122,12 +122,19 @@ class DDPG():
         wandb_inst.watch((self.actor, self.critic))
         artifact = wandb.Artifact(name='ddpg', type='model')
 
+        # create table to store actions for wandb
+        table_train = []
+        table_eval = []
+        columns = ['episode', 'date', 'value_before', 'trans_cost', 'reward', *self.env_train.stock_names]
+
+
         # creating directory to store models if it doesn't exist
         if not os.path.isdir(wandb_inst.config.save_model_path):
             os.mkdir(wandb_inst.config.save_model_path)
 
         scaler = amp.GradScaler()
 
+        max_ep_reward_val = -np.inf
         # loop over episodes
         for episode in range(self.num_episodes):
 
@@ -160,6 +167,9 @@ class DDPG():
                 # add to buffer
                 self.buffer.add(curr_obs, action, reward, done, next_obs)
 
+                # add to table
+                table_train.append([episode, info['date'], info['port_value_old'], info['cost'], reward, *action])
+
                 # if replay buffer has enough observations
                 if self.buffer.size() >= self.batch_size:
                     self.update_policy(scaler)
@@ -176,9 +186,13 @@ class DDPG():
 
             # evaluate model every few episodes
             if episode % self.eval_steps == self.eval_steps - 1:
-                ep_reward_val = self.eval()
-                print(f"Episode reward - eval: {ep_reward}")
+                ep_reward_val = self.eval(mode='test', render=False, episode=episode, table=table_eval)
+                print(f"Episode reward - eval: {ep_reward_val}")
                 wandb_inst.log({'episode_reward_eval': ep_reward_val}, step=episode)
+
+                if ep_reward_val > max_ep_reward_val:
+                    max_ep_reward_val = ep_reward_val
+                    wandb_inst.summary['max_ep_reward_val'] = max_ep_reward_val
 
                 # save trained model
                 actor_path_name = os.path.join(wandb_inst.config.save_model_path,
@@ -186,10 +200,16 @@ class DDPG():
                 torch.save(self.actor.state_dict(), actor_path_name)
                 artifact.add_file(actor_path_name, name=f'{wandb_inst.config.model_name}_ep{episode}.pth')
 
-            wandb_inst.log_artifact(artifact)
+        wandb_inst.log({'table_train': wandb.Table(columns=columns, data=table_train)})
+        wandb_inst.log({'table_eval': wandb.Table(columns=columns, data=table_eval)})
+        wandb_inst.log_artifact(artifact)
 
 
-    def eval(self, mode = 'test', render = False):
+    def eval(self, mode = 'test', render = False, episode = None, table = None):
+        # mode: exploration vs no exploration
+        # render: plot
+        # episode - table: only used during training to log results on wandb
+
         print("Begin eval!")
         self.set_eval()
 
@@ -214,6 +234,10 @@ class DDPG():
 
             # step forward environment
             next_obs, reward, done, info = env.step(action)  # may need to normalize obs
+
+            # add to table
+            if table is not None:
+                table.append([episode, info['date'], info['port_value_old'], info['cost'], reward, *action])
 
             ep_reward += reward
             curr_obs = next_obs

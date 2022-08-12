@@ -26,13 +26,12 @@ class Market():
         assert self.start_idx <= self.end_idx, "Starting date must be before ending date"
         # assert self.end_idx < len(self.date_list), "Invalid ending date: no observations past 2018-02-07 in the dataset"
 
-        if stock_names is None:
-            self.stock_names = ["AAPL", "ATVI", "CMCSA", "COST", "CSX", "DISH", "EA", "EBAY", "FB", "GOOGL", "HAS", "ILMN", "INTC", "MAR", "REGN", "SBUX"]
-        else:
-            self.stock_names = stock_names
+        self.stock_names = stock_names
 
         # store only the required data
-        self.data = data_utils.hist_data[:, self.start_idx - self.window_length + 1 : self.end_idx + 2, :]
+        stock_idxs = [data_utils.stock_names.index(stock) for stock in self.stock_names]
+        stock_idxs = [0, *stock_idxs]
+        self.data = data_utils.hist_data[stock_idxs, self.start_idx - self.window_length + 1 : self.end_idx + 2, :]
 
         # S&P500 ETF values
         self.snp = data_utils.snp[self.start_idx - self.window_length + 1 : self.end_idx + 1, :]
