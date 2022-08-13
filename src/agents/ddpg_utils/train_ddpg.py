@@ -23,8 +23,8 @@ def main(params):
     parser.add_argument('--normalize', dest='normalize', default=False, action='store_true',
                         help='True to normalize data, False otherwise')
 
-    parser.add_argument('--num_episodes', default=1, type=int, help='number of episodes to train for')
-    parser.add_argument('--eval_steps', default=2, type=int, help='how many episodes for every evaluation step')
+    parser.add_argument('--num_episodes', default=500, type=int, help='number of episodes to train for')
+    parser.add_argument('--eval_steps', default=20, type=int, help='how many episodes for every evaluation step')
     parser.add_argument('--batch_size', default=64, type=int, help='minibatch size')
     parser.add_argument('--tau', default=0.001, type=float, help='moving average for target network')
     parser.add_argument('--gamma', default=0.99, type=float, help='')
