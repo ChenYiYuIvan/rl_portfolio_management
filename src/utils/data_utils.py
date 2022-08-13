@@ -1,6 +1,8 @@
 import csv
 import os
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 import yfinance as yf
 import datetime as dt
 
@@ -10,8 +12,9 @@ end_date = '2018-02-07'
 
 date_fmt = '%Y-%m-%d'
 snp = yf.download('SPY',
-    start=(dt.datetime.strptime(start_date, date_fmt) + dt.timedelta(1)).strftime(date_fmt),
-    end=(dt.datetime.strptime(end_date, date_fmt) + dt.timedelta(1)).strftime(date_fmt))
+                  start=(dt.datetime.strptime(start_date, date_fmt) +
+                         dt.timedelta(1)).strftime(date_fmt),
+                  end=(dt.datetime.strptime(end_date, date_fmt) + dt.timedelta(1)).strftime(date_fmt))
 
 date_list = snp.index.astype(str).tolist()
 
@@ -27,7 +30,7 @@ if snp.shape[0] == 0:
         for row in data:
             date_list.append(row[0])
 
-    snp = np.ones((1000,5))
+    snp = np.ones((1000, 5))
 
 
 stock_names = os.listdir('data')
@@ -45,7 +48,8 @@ for stock in stock_names:
         for row in data:
             # memorize only necessary observations
             date_idx = date_list.index(row[0])
-            row[1:6] = [float(num) for num in row[1:6]] # open, high, low, close, volume
+            # open, high, low, close, volume
+            row[1:6] = [float(num) for num in row[1:6]]
             stock_data.append(row[1:6])
 
     hist_data.append(stock_data)
@@ -56,3 +60,32 @@ hist_data = np.array(hist_data)
 cash_data = np.ones((1, hist_data.shape[1], hist_data.shape[2]))
 hist_data = np.concatenate((cash_data, hist_data), axis=0)
 stock_names = ['CASH', *stock_names]
+
+
+def plot_stock_values(start_date, end_date, num_cols = 4):
+    assert start_date in date_list, 'start date is not valid'
+    assert end_date in date_list, 'end date is not valid'
+
+    start_id = date_list.index(start_date)
+    end_id = date_list.index(end_date)
+
+    data = hist_data[1:, start_id:end_id+1, 3]
+    
+    num_rows = int(np.ceil(data.shape[0] / num_cols))
+
+    fig, axarr = plt.subplots(num_rows, num_cols)
+    for row in range(num_rows):
+        for col in range(num_cols):
+            stock_id = col + row*num_cols
+            df = [{'date': date_list[start_id+day_id], 'value': data[stock_id, day_id]} for day_id in range(data.shape[1])]
+            name = stock_names[stock_id + 1]
+
+            df = pd.DataFrame(df)
+            df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+            df.set_index('date', inplace=True)
+
+            df.plot(ax=axarr[row,col], title=name, rot=30, legend=False)
+    plt.show()
+
+
+#plot_stock_values("2016-03-22", "2018-02-07")

@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 from src.environments.market import Market
+from empyrical import sharpe_ratio, max_drawdown
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -171,21 +172,9 @@ class Portfolio(gym.Env):
         df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
         df.set_index('date', inplace=True)
 
-        mdd = self.max_drawdown(df.rate_of_return + 1)
-        sharpe_ratio = self.sharpe(df.rate_of_return)
-        title = 'max_drawdown={: 2.2%} sharpe_ratio={: 2.4f}'.format(mdd, sharpe_ratio)
+        mdd = max_drawdown(df.rate_of_return)
+        sharpe = sharpe_ratio(df.rate_of_return)
+        title = 'max_drawdown={: 2.2%} sharpe_ratio={: 2.4f}'.format(mdd, sharpe)
 
         df[['market', 'portfolio']].plot(title=title, rot=30)
-        plt.plot()
-
-
-    def sharpe(self, returns, freq=30, rfr=0):
-        """ Given a set of returns, calculates naive (rfr=0) sharpe (eq 28). """
-        return (np.sqrt(freq) * np.mean(returns - rfr + self.eps)) / np.std(returns - rfr + self.eps)
-
-
-    def max_drawdown(self, returns):
-        """ Max drawdown. See https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp """
-        peak = returns.max()
-        trough = returns[returns.argmax():].min()
-        return (trough - peak) / (peak + self.eps)
+        plt.show()
