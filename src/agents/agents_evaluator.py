@@ -1,4 +1,3 @@
-from collections import defaultdict
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,17 +18,27 @@ class AgentsEvaluator:
         self.agents_list = agents_list
 
 
-    def evaluate_all(self, market=True):
+    def evaluate_all(self, market=True, plot_values=True, plot_weights=True, num_cols=5):
+        # market: True to plot SPY values with other agents
+        # plot_values: True to plot agents' values
+        # plot_weights: True to plot agents' actions over time
+        # num_cols: for plot_weights
 
-        df = defaultdict(dict)
+        agent_metrics = []
+        agent_names = [agent.name for agent in self.agents_list]
+        
+        if plot_values:
+            fig1, ax1 = plt.subplots()
+        if plot_weights:
+            stock_names = ['CASH', *self.env.stock_names]
+            num_rows = int(np.ceil(len(stock_names) / num_cols))
+            fig2, ax2 = plt.subplots(num_rows, num_cols)
 
-        info_agents = []
-        metric_agents = [] # for every agent: sharpe ratio, drawdown
-        for agent in self.agents_list: # for every agent
+        for agent in self.agents_list: # current agent to plot
             reward, info = agent.eval(self.env)
 
             rate_of_return = np.array([el['simple_return'] for el in info])
-            metric_agents.append({'agent': agent.name,
+            agent_metrics.append({'agent': agent.name,
                                   'sharpe_ratio': sharpe_ratio(rate_of_return),
                                   'sortino_ratio': sortino_ratio(rate_of_return),
                                   'max_drawdown': max_drawdown(rate_of_return),
@@ -37,44 +46,54 @@ class AgentsEvaluator:
                                   'cvar_95': conditional_value_at_risk(rate_of_return)
                                   })
 
-            info_modified = []
-            for item in info: # for every timestep
-                if market: # add market data
-                    info_modified.append({'date': item['date'], 'market': item['s&p500']})
-                # add agent data
-                info_modified.append({'date': item['date'], agent.name: item['port_value_old']})
+            if plot_values:
+                df = pd.DataFrame(info)
+                if market:
+                    df = df[['date', 's&p500', 'port_value_old']]
+                    agent_names.insert(0, 'market')
+                    market = False
+                else:
+                    df = df[['date', 'port_value_old']]
+                df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+                df.set_index('date', inplace=True)
+                df.plot(ax=ax1, rot=30)
 
-            info_agents += info_modified
-            market = False # add market data only once
+            if plot_weights:
+                for stock_id in range(len(stock_names)):
+                    row = int(stock_id / num_cols) # current row in figure
+                    col = stock_id % num_cols # current col in figure
+                    stock_name = stock_names[stock_id] # current stock to plot
+                    info_stock = [{'date': item['date'], agent.name: item['action'][stock_id]} for item in info]
+                    df2 = pd.DataFrame(info_stock)
+                    df2['date'] = pd.to_datetime(df2['date'], format='%Y-%m-%d')
+                    df2.set_index('date', inplace=True)
+                    df2.plot(ax=ax2[row,col], title=stock_name, rot=30)
 
-        for item in info_agents:
-            df[item['date']].update(item)
+        if plot_values:
+            ax1.legend(agent_names)
+            plt.show()
+
+        if plot_weights:
+            fig2.legend(stock_names)
+            plt.show()
 
         # print portfolio metrics
-        metric_agents = pd.DataFrame(metric_agents)
-        metric_agents.set_index('agent', inplace=True)
-        print(metric_agents)
-
-        # plot portfolio value over time
-        df = list(df.values())
-        df = pd.DataFrame(df)
-        df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
-        df.set_index('date', inplace=True)
-        df.plot(rot=30)
-        plt.show()
+        agent_metrics = pd.DataFrame(agent_metrics)
+        agent_metrics.set_index('agent', inplace=True)
+        print(agent_metrics)
 
 
 def main():
 
     seed = 42
 
-    env_config = read_yaml_config('env_default_test')
+    env_config = read_yaml_config('env_default_train')
     ddpg_config = read_yaml_config('ddpg_default')
 
     env = PortfolioEnd(env_config)
 
     ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
-    ddpg.load_actor_model('./checkpoints_ddpg/ddpg_ep499.pth')
+    ddpg.load_actor_model('./checkpoints/checkpoints_ddpg/ddpg_ep499.pth')
 
     crp = CRPAgent('crp', env, seed)
 

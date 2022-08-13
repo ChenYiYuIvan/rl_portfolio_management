@@ -112,6 +112,8 @@ class DDPGAgent(BaseAgent):
         update_params(self.actor_target, self.actor, self.tau)
         update_params(self.critic_target, self.critic, self.tau)
 
+        return value_loss, policy_loss
+
 
     def train(self, wandb_inst, env_test):
         # env_test: environment used to test agent during training (usually different from training environment)
@@ -131,6 +133,7 @@ class DDPGAgent(BaseAgent):
 
         scaler = amp.GradScaler()
 
+        step = 0
         max_ep_reward_val = -np.inf
         # loop over episodes
         for episode in range(self.num_episodes):
@@ -166,7 +169,8 @@ class DDPGAgent(BaseAgent):
 
                 # if replay buffer has enough observations
                 if self.buffer.size() >= self.batch_size:
-                    self.update_policy(scaler)
+                    value_loss, policy_loss = self.update_policy(scaler)
+                    wandb_inst.log({'value_loss': value_loss, 'policy_loss': policy_loss}, step=step)
 
                 ep_reward += reward
                 curr_obs = next_obs
@@ -174,15 +178,18 @@ class DDPGAgent(BaseAgent):
                 tq.update(1)
                 tq.set_postfix(ep_reward='%.6f' % ep_reward)
 
+                wandb_inst.log({'episode': episode, 'reward_train': reward}, step=step)
+                step += 1
+
             tq.close()
             print(f"Episode reward: {ep_reward}")
-            wandb_inst.log({'episode_reward_train': ep_reward}, step=episode)
+            wandb_inst.log({'episode_reward_train': ep_reward}, step=step)
 
             # evaluate model every few episodes
             if episode % self.eval_steps == self.eval_steps - 1:
                 ep_reward_val, infos_eval = self.eval(env_test, render=False)
                 print(f"Episode reward - eval: {ep_reward_val}")
-                wandb_inst.log({'episode_reward_eval': ep_reward_val}, step=episode)
+                wandb_inst.log({'episode_reward_eval': ep_reward_val}, step=step)
 
                 # store info data in table (both train and eval)
                 # store train data only every few steps to reduce memory consuption
