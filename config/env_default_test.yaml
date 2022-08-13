@@ -1,0 +1,26 @@
+# default config for portfolio environment for testing
+
+start_date: "2016-03-22"
+end_date: "2018-02-07"
+window_length: 30
+stock_names:
+  - AAPL
+  - ATVI
+  - CMCSA
+  - COST
+  - CSX
+  - DISH
+  - EA
+  - EBAY
+  - FB
+  - GOOGL
+  - HAS
+  - ILMN
+  - INTC
+  - MAR
+  - REGN
+  - SBUX
+init_portfolio_value: 1
+trading_cost: 0.002
+continuous: false
+normalize: true

@@ -1,8 +1,8 @@
 # Others
 wandb/
-artifacts
-checkpoints_ddpg
-.vscode
+artifacts/
+checkpoints/
+.vscode/
 
 
 # Byte-compiled / optimized / DLL files

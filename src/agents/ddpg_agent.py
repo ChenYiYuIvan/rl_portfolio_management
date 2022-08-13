@@ -20,8 +20,8 @@ import os
 
 class DDPGAgent(BaseAgent):
 
-    def __init__(self, name, env, args):
-        super().__init__(name, env, args)
+    def __init__(self, name, env, seed, args):
+        super().__init__(name, env, seed)
         
         self.actor = Actor(self.state_dim[2], self.state_dim[1])
         self.actor_target = Actor(self.state_dim[2], self.state_dim[1])
@@ -62,6 +62,9 @@ class DDPGAgent(BaseAgent):
 
         for param in self.critic_target.parameters():
             param.requires_grad = False
+
+        #
+        self.checkpoint_folder = f'./checkpoints/{args.checkpoint_folder}'
 
 
     def update_policy(self, scaler):
@@ -123,8 +126,8 @@ class DDPGAgent(BaseAgent):
 
 
         # creating directory to store models if it doesn't exist
-        if not os.path.isdir(wandb_inst.config.save_model_path):
-            os.mkdir(wandb_inst.config.save_model_path)
+        if not os.path.isdir(self.checkpoint_folder):
+            os.makedirs(self.checkpoint_folder)
 
         scaler = amp.GradScaler()
 
@@ -194,10 +197,10 @@ class DDPGAgent(BaseAgent):
                     wandb_inst.summary['max_ep_reward_val'] = max_ep_reward_val
 
                 # save trained model
-                actor_path_name = os.path.join(wandb_inst.config.save_model_path,
-                    f'{wandb_inst.config.model_name}_ep{episode}.pth')
+                actor_path_name = os.path.join(self.checkpoint_folder,
+                    f'{self.name}_ep{episode}.pth')
                 torch.save(self.actor.state_dict(), actor_path_name)
-                artifact.add_file(actor_path_name, name=f'{wandb_inst.config.model_name}_ep{episode}.pth')
+                artifact.add_file(actor_path_name, name=f'{self.name}_ep{episode}.pth')
 
         wandb_inst.log({'table_train': wandb.Table(columns=columns, data=table_train)})
         wandb_inst.log({'table_eval': wandb.Table(columns=columns, data=table_eval)})

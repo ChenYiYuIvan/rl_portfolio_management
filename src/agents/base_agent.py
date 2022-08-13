@@ -6,10 +6,10 @@ from src.utils.torch_utils import USE_CUDA
 
 class BaseAgent:
 
-    def __init__(self, name, env, args):
+    def __init__(self, name, env, seed):
 
-        if args.seed > 0:
-            self.seed(args.seed)
+        if seed > 0:
+            self.seed(seed)
 
         self.name = name
         self.env = env

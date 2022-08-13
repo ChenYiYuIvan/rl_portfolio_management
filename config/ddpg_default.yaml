@@ -1,17 +1,7 @@
 # default config for ddpg
 
-seed: 42
-save_model_path: "./checkpoints_ddpg"
-model_name: "ddpg"
-start_train: "2013-03-22"
-end_train: "2016-02-05"
-start_test: "2016-03-22"
-end_test: "2018-02-07"
-window_length: 30
-stock_names: null
-trading_cost: 0.002
-continuous: false
-normalize: true
+checkpoint_folder: checkpoints_ddpg
+
 num_episodes: 500
 eval_steps: 20
 batch_size: 64

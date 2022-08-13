@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from src.environments.portfolio_end import PortfolioEnd
 from src.agents.ddpg_agent import DDPGAgent
 from src.agents.crp_agent import CRPAgent
-from src.utils.file_utils import read_json_config, read_yaml_config
+from src.utils.file_utils import read_yaml_config
 from empyrical import sharpe_ratio, sortino_ratio, max_drawdown, value_at_risk, conditional_value_at_risk
 
 
@@ -66,14 +66,17 @@ class AgentsEvaluator:
 
 def main():
 
-    args = read_yaml_config('ddpg_default')
+    seed = 42
 
-    env = PortfolioEnd(args.start_test, args.end_test, args.window_length, args.stock_names, args.trading_cost, args.continuous, args.normalize)
+    env_config = read_yaml_config('env_default_test')
+    ddpg_config = read_yaml_config('ddpg_default')
 
-    ddpg = DDPGAgent('ddpg', env, args)
+    env = PortfolioEnd(env_config)
+
+    ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
     ddpg.load_actor_model('./checkpoints_ddpg/ddpg_ep499.pth')
 
-    crp = CRPAgent('crp', env, args)
+    crp = CRPAgent('crp', env, seed)
 
 
     evaluator = AgentsEvaluator(env, [ddpg, crp])

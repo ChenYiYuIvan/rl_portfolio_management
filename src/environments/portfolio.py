@@ -10,27 +10,27 @@ class Portfolio(gym.Env):
 
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, start_date, end_date, window_length=30, stock_names=None, trading_cost=0.002, continuous=False, normalize=True):
+    def __init__(self, config):
         super().__init__()
 
         self.eps = 1e-8
 
-        self.continuous = continuous  # bool to use continuous market assumption
-        self.normalize = normalize  # divide price matrix by close price of time t
+        self.continuous = config.continuous  # bool to use continuous market assumption
+        self.normalize = config.normalize  # divide price matrix by close price of time t
 
-        self.start_date = start_date
-        self.end_date = end_date
-        self.window_length = window_length
+        self.start_date = config.start_date
+        self.end_date = config.end_date
+        self.window_length = config.window_length
 
-        self.init_port_value = 1
+        self.init_port_value = config.init_portfolio_value
 
-        if stock_names is None:
+        if config.stock_names is None:
             self.stock_names = ["AAPL", "ATVI", "CMCSA", "COST", "CSX", "DISH", "EA",
                                 "EBAY", "FB", "GOOGL", "HAS", "ILMN", "INTC", "MAR", "REGN", "SBUX"]
         else:
-            self.stock_names = stock_names
+            self.stock_names = config.stock_names
 
-        self.trading_cost = trading_cost
+        self.trading_cost = config.trading_cost
 
         self.market = Market(self.start_date, self.end_date, self.window_length, self.stock_names)
 

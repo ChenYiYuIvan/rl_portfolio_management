@@ -5,9 +5,8 @@ import gym
 
 class PortfolioEnd(Portfolio):
 
-    def __init__(self, start_date, end_date, window_length=30, stock_names=None, trading_cost=0.002, continuous=False, normalize=True):
-        super().__init__(start_date, end_date, window_length,
-                         stock_names, trading_cost, continuous, normalize)
+    def __init__(self, config):
+        super().__init__(config)
 
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf,
                                                 shape=(len(self.stock_names), self.window_length, 3), dtype=np.float32)

@@ -7,8 +7,8 @@ class CRPAgent(BaseAgent):
     # at each period the portfolio is rebalanced to the initial wealth distribution among
     # all the assets (including the cash)
 
-    def __init__(self, name, env, args):
-        super().__init__(name, env, args)
+    def __init__(self, name, env, seed):
+        super().__init__(name, env, seed)
 
 
     def predict_action(self, obs):
