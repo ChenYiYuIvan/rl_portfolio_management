@@ -3,11 +3,10 @@ Source: https://github.com/vermouth1992/deep-learning-playground/blob/master/ten
 """
 from collections import deque
 import random
-from tkinter import N
 import numpy as np
 import warnings
 import torch
-from ..utils.torch_utils import USE_CUDA, FLOAT
+from src.utils.torch_utils import USE_CUDA, FLOAT
 
 
 class ReplayBuffer(object):

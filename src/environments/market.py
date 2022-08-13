@@ -1,5 +1,4 @@
-from ..utils import data_utils
-import numpy as np
+from src.utils import data_utils
 from copy import deepcopy
 
 class Market():

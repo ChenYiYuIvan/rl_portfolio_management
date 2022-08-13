@@ -1,35 +1,28 @@
-from sqlite3 import NotSupportedError
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.cuda import amp
 
-from ..utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
+from src.agents.base_agent import BaseAgent
 
-from .actor import Actor
-from .critic import Critic
-from .replay_buffer import ReplayBuffer
-from .noise import OrnsteinUhlenbeckActionNoise
+from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
+
+from src.agents.ddpg_utils.actor import Actor
+from src.agents.ddpg_utils.critic import Critic
+from src.agents.ddpg_utils.replay_buffer import ReplayBuffer
+from src.agents.ddpg_utils.noise import OrnsteinUhlenbeckActionNoise
 
 from tqdm import tqdm
 import wandb
 import os
 
 
-class DDPG():
+class DDPGAgent(BaseAgent):
 
-    def __init__(self, env_train, env_test, args):
+    def __init__(self, name, env, args):
+        super().__init__(name, env, args)
         
-        if args.seed > 0:
-            self.seed(args.seed)
-
-        self.env_train = env_train
-        self.env_test = env_test
-
-        self.state_dim = self.env_train.observation_space.shape
-        self.action_dim = self.env_train.action_space.shape[0]
-
         self.actor = Actor(self.state_dim[2], self.state_dim[1])
         self.actor_target = Actor(self.state_dim[2], self.state_dim[1])
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
@@ -117,7 +110,8 @@ class DDPG():
         update_params(self.critic_target, self.critic, self.tau)
 
 
-    def train(self, wandb_inst):
+    def train(self, wandb_inst, env_test):
+        # env_test: environment used to test agent during training (usually different from training environment)
         print("Begin train!")
         wandb_inst.watch((self.actor, self.critic))
         artifact = wandb.Artifact(name='ddpg', type='model')
@@ -125,7 +119,7 @@ class DDPG():
         # create table to store actions for wandb
         table_train = []
         table_eval = []
-        columns = ['episode', 'date', 'value_before', 'trans_cost', 'reward', *self.env_train.stock_names]
+        columns = ['episode', 'date', 'value_before', 'trans_cost', 'reward', 'CASH', *self.env.stock_names]
 
 
         # creating directory to store models if it doesn't exist
@@ -139,7 +133,7 @@ class DDPG():
         for episode in range(self.num_episodes):
 
             # logging
-            num_steps = self.env_train.market.end_idx - self.env_train.market.start_idx + 1
+            num_steps = self.env.market.end_idx - self.env.market.start_idx + 1
             tq = tqdm(total=num_steps)
             tq.set_description('episode %d' % (episode))
 
@@ -147,7 +141,7 @@ class DDPG():
             self.set_train()
 
             # initial state of environment
-            curr_obs = self.env_train.reset()  # may need to normalize obs
+            curr_obs = self.env.reset()  # may need to normalize obs
 
             # initialize values
             ep_reward = 0
@@ -157,18 +151,15 @@ class DDPG():
             while not done:
                 # select action
                 if self.buffer.size() >= self.batch_size:
-                    action = self.predict_action(curr_obs, mode='train')
+                    action = self.predict_action(curr_obs, True)
                 else:
                     action = self.random_action()
 
                 # step forward environment
-                next_obs, reward, done, info = self.env_train.step(action)  # may need to normalize obs
+                next_obs, reward, done, info_train = self.env.step(action)  # may need to normalize obs
                 
                 # add to buffer
                 self.buffer.add(curr_obs, action, reward, done, next_obs)
-
-                # add to table
-                table_train.append([episode, info['date'], info['port_value_old'], info['cost'], reward, *action])
 
                 # if replay buffer has enough observations
                 if self.buffer.size() >= self.batch_size:
@@ -186,9 +177,17 @@ class DDPG():
 
             # evaluate model every few episodes
             if episode % self.eval_steps == self.eval_steps - 1:
-                ep_reward_val = self.eval(mode='test', render=False, episode=episode, table=table_eval)
+                ep_reward_val, infos_eval = self.eval(env_test, render=False)
                 print(f"Episode reward - eval: {ep_reward_val}")
                 wandb_inst.log({'episode_reward_eval': ep_reward_val}, step=episode)
+
+                # store info data in table (both train and eval)
+                # store train data only every few steps to reduce memory consuption
+                table_train.append([episode, info_train['date'], info_train['port_value_old'], info_train['cost'],
+                    info_train['reward'], *info_train['action']])
+                for info_eval in infos_eval:
+                    table_eval.append([episode, info_eval['date'], info_eval['port_value_old'], info_eval['cost'],
+                        info_eval['reward'], *info_eval['action']])
 
                 if ep_reward_val > max_ep_reward_val:
                     max_ep_reward_val = ep_reward_val
@@ -205,57 +204,13 @@ class DDPG():
         wandb_inst.log_artifact(artifact)
 
 
-    def eval(self, mode = 'test', render = False, episode = None, table = None):
-        # mode: exploration vs no exploration
-        # render: plot
-        # episode - table: only used during training to log results on wandb
+    def eval(self, env, render = False):
 
-        print("Begin eval!")
         self.set_eval()
-
-        if mode == 'train' or mode == 'test_on_train':
-            env = self.env_train
-        elif mode == 'test':
-            env = self.env_test
-        else:
-            raise NotSupportedError
-
-        # initial state of environment
-        curr_obs = env.reset()  # may need to normalize obs
-
-        # initialize values
-        ep_reward = 0
-
-        # keep sampling until done
-        done = False
-        while not done:
-            # select action
-            action = self.predict_action(curr_obs, mode)
-
-            # step forward environment
-            next_obs, reward, done, info = env.step(action)  # may need to normalize obs
-
-            # add to table
-            if table is not None:
-                table.append([episode, info['date'], info['port_value_old'], info['cost'], reward, *action])
-
-            ep_reward += reward
-            curr_obs = next_obs
-
-        if render:
-            env.render()
-
-        return ep_reward
+        return super().eval(env, render)
 
 
-    def random_action(self):
-        action = self.env_train.action_space.sample()
-        action /= action.sum()
-
-        return action
-
-
-    def predict_action(self, obs, mode = 'test'):
+    def predict_action(self, obs, exploration=False):
         a,b = obs
         a = torch.tensor(a, dtype=FLOAT, device=self.device)
         b = torch.tensor(b, dtype=FLOAT, device=self.device)
@@ -265,7 +220,7 @@ class DDPG():
         else:
             action = action.detach().numpy()
 
-        if mode == 'train': # add exploration
+        if exploration: # add exploration
             action += self.actor_noise()
         
         action = np.clip(action, 0, 1)
@@ -297,9 +252,3 @@ class DDPG():
         self.actor_target.cuda()
         self.critic.cuda()
         self.critic_target.cuda()
-
-
-    def seed(self,s):
-        torch.manual_seed(s)
-        if USE_CUDA:
-            torch.cuda.manual_seed(s)

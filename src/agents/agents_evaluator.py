@@ -1,7 +1,47 @@
+from collections import defaultdict
+import pandas as pd
+import matplotlib.pyplot as plt
 import argparse
-import wandb
+import pandas as pd
+import matplotlib.pyplot as plt
 from src.environments.portfolio_end import PortfolioEnd
-from src.ddpg.ddpg import DDPG
+from src.agents.ddpg_agent import DDPGAgent
+from src.agents.crp_agent import CRPAgent
+
+
+class AgentsEvaluator:
+
+    def __init__(self, env, agents_list):
+        
+        self.env = env
+        self.agents_list = agents_list
+
+
+    def evaluate_all(self, market=True):
+
+        df = defaultdict(dict)
+
+        info_agents = []
+        for agent in self.agents_list: # for every agent
+            reward, info = agent.eval(self.env)
+            info_modified = []
+            for item in info: # for every timestep
+                if market:
+                    info_modified.append({'date': item['date'], 'market': item['s&p500'], agent.name: item['port_value_old']})
+                else:
+                    info_modified.append({'date': item['date'], agent.name: item['port_value_old']})
+            info_agents += info_modified
+
+        for item in info_agents:
+            df[item['date']].update(item)
+
+        df = list(df.values())
+        df = pd.DataFrame(df)
+
+        df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+        df.set_index('date', inplace=True)
+        df.plot(rot=30)
+        plt.show()
 
 
 def main(params):
@@ -11,10 +51,12 @@ def main(params):
     parser.add_argument('--save_model_path', type=str, default=None, help='path to save model')
     parser.add_argument('--model_name', type=str, default=None, help='name of the model')
 
-    parser.add_argument('--start_train', type=str, default="2013-03-22", help='starting date of training data')
-    parser.add_argument('--end_train', type=str, default="2016-02-05", help='end date date of training data')
+    #parser.add_argument('--start_test', type=str, default="2013-03-22", help='starting date of training data')
+    #parser.add_argument('--end_test', type=str, default="2016-02-05", help='end date date of training data')
+    
     parser.add_argument('--start_test', type=str, default="2016-03-22", help='starting date of testing data')
     parser.add_argument('--end_test', type=str, default="2018-02-07", help='end date of testing data')
+    
     parser.add_argument('--window_length', default=30, type=int, help='window length')
     parser.add_argument('--stock_names', type=str, default=None, help='name of stocks in the market')
     parser.add_argument('--trading_cost', default=0.002, type=float, help='trading cost')
@@ -34,18 +76,16 @@ def main(params):
 
     args = parser.parse_args(params)
 
-    wandb.login()
-    with wandb.init(project="thesis", entity="mldlproj1gr2", config=vars(args), mode="online") as run:
-        config = wandb.config
+    env = PortfolioEnd(args.start_test, args.end_test, args.window_length, args.stock_names, args.trading_cost, args.continuous, args.normalize)
 
-        env_train = PortfolioEnd(config.start_train, config.end_train, config.window_length, config.stock_names, config.trading_cost, config.continuous, config.normalize)
-        env_test = PortfolioEnd(config.start_test, config.end_test, config.window_length, config.stock_names, config.trading_cost, config.continuous, config.normalize)
+    ddpg = DDPGAgent('ddpg', env, args)
+    ddpg.load_actor_model('./checkpoints_ddpg/ddpg_ep499.pth')
 
-        ddpg = DDPG(env_train, env_test, config)
+    crp = CRPAgent('crp', env, args)
 
-        ddpg.train(run)
-        #ddpg.load_actor_model('./checkpoints_ddpg/ddpg_ep64.pth')
-        #ddpg.eval(render = True)
+
+    evaluator = AgentsEvaluator(env, [ddpg, crp])
+    evaluator.evaluate_all()
 
 
 if __name__ == '__main__':

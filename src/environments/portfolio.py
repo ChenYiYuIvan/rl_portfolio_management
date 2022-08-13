@@ -1,10 +1,8 @@
 import gym
 import numpy as np
-from .market import Market
+from src.environments.market import Market
 import pandas as pd
 import matplotlib.pyplot as plt
-import torch
-from ..utils.torch_utils import USE_CUDA
 
 
 class Portfolio(gym.Env):
@@ -166,10 +164,28 @@ class Portfolio(gym.Env):
 
     def render(self, mode='human', close=False):
         # plot value of portfolio and compare with value of market (~ S&P500 ETF)
-        df = [{'date': info['date'], 'portfolio': info['port_value_new'], 'market': info['s&p500']}
+        df = [{'date': info['date'], 'market': info['s&p500'], 'portfolio': info['port_value_new'], 'rate_of_return': info['simple_return']}
               for info in self.infos]
         df = pd.DataFrame(df)
 
         df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
         df.set_index('date', inplace=True)
-        df.plot(fig=plt.gcf(), rot=30)
+
+        mdd = self.max_drawdown(df.rate_of_return + 1)
+        sharpe_ratio = self.sharpe(df.rate_of_return)
+        title = 'max_drawdown={: 2.2%} sharpe_ratio={: 2.4f}'.format(mdd, sharpe_ratio)
+
+        df[['market', 'portfolio']].plot(title=title, rot=30)
+        plt.plot()
+
+
+    def sharpe(self, returns, freq=30, rfr=0):
+        """ Given a set of returns, calculates naive (rfr=0) sharpe (eq 28). """
+        return (np.sqrt(freq) * np.mean(returns - rfr + self.eps)) / np.std(returns - rfr + self.eps)
+
+
+    def max_drawdown(self, returns):
+        """ Max drawdown. See https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp """
+        peak = returns.max()
+        trough = returns[returns.argmax():].min()
+        return (trough - peak) / (peak + self.eps)

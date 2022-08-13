@@ -1,0 +1,6 @@
+{
+  "python.linting.enabled": true,
+  "terminal.integrated.env.windows": {
+      "PYTHONPATH": "${workspaceFolder}${pathSeparator}$src",
+    },
+}

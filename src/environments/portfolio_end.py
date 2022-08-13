@@ -1,5 +1,4 @@
-from locale import normalize
-from .portfolio import Portfolio
+from src.environments.portfolio import Portfolio
 import numpy as np
 import gym
 
