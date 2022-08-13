@@ -86,6 +86,3 @@ def plot_stock_values(start_date, end_date, num_cols = 4):
 
             df.plot(ax=axarr[row,col], title=name, rot=30, legend=False)
     plt.show()
-
-
-#plot_stock_values("2016-03-22", "2018-02-07")
