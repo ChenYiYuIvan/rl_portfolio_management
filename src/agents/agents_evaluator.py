@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 from src.environments.portfolio_end import PortfolioEnd
 from src.agents.ddpg_agent import DDPGAgent
 from src.agents.crp_agent import CRPAgent
+from src.agents.random_agent import RandomAgent
 from src.utils.file_utils import read_yaml_config
-from src.utils.data_utils import date_list, snp
+from src.utils.data_utils import date_list, snp, plot_stock_values
 from empyrical import simple_returns
 from empyrical import sharpe_ratio, sortino_ratio, max_drawdown, value_at_risk, conditional_value_at_risk
 
@@ -20,7 +21,7 @@ class AgentsEvaluator:
         self.agents_list = agents_list
 
 
-    def evaluate_all(self, market=True, plot_values=True, plot_weights=True, num_cols=5):
+    def evaluate_all(self, stock=False, market=True, plot_values=True, plot_weights=True, num_cols=5):
         # market: True to plot SPY values with other agents
         # plot_values: True to plot agents' values
         # plot_weights: True to plot agents' actions over time
@@ -98,6 +99,9 @@ class AgentsEvaluator:
         agent_metrics.set_index('agent', inplace=True)
         print(agent_metrics)
 
+        if stock: # plot stock values
+            plot_stock_values(self.env.start_date, self.env.end_date)
+
         if plot_values: # plot agent generated portfolio values
             ax1.legend(agent_names)
             plt.show()
@@ -121,8 +125,9 @@ def main():
 
     crp = CRPAgent('crp', env, seed)
 
+    rng = RandomAgent('rng', env, seed)
 
-    evaluator = AgentsEvaluator(env, [ddpg, crp])
+    evaluator = AgentsEvaluator(env, [rng, ddpg, crp])
     evaluator.evaluate_all()
 
 

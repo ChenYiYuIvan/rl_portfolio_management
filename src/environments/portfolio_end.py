@@ -27,14 +27,15 @@ class PortfolioEnd(Portfolio):
 
         # observe open/.../close price of stocks
         curr_obs, next_obs, done = self.market.step()
-        # curr_obs = torch.tensor(curr_obs, dtype=FLOAT, device=self.device)
-        # next_obs = torch.tensor(next_obs, dtype=FLOAT, device=self.device)
-        # done = torch.tensor(done, dtype=torch.bool, device=self.device)
 
         reward, reward_info = self._take_action(curr_obs, action, next_obs)
 
         next_obs = next_obs[:, :, 1:4]
         next_obs = np.transpose(next_obs, (2, 0, 1))
+        # next_obs[i,j,k]:
+        # - i = {0: high, 1: low, 2: close}
+        # - j = stock id
+        # - k = day in sliding window -> {-1: current day, 0: window_length days before}
         if self.normalize:
             close_price = next_obs[2,:,-1]
             next_obs /= close_price[None, :, None]
@@ -99,19 +100,13 @@ class PortfolioEnd(Portfolio):
         self.infos = []
 
         # assume that starting portfolio is all cash
-        weights = np.array([1] + [0 for _ in range(len(self.stock_names))])
-        port_value = self.init_port_value  # initial value of portfolio
+        self.weights = np.array([1] + [0 for _ in range(len(self.stock_names))])
+        self.port_value = self.init_port_value  # initial value of portfolio
 
         # open, low, high, close, volume data of day 0
         curr_obs = self.market.reset()
 
-        close_price = curr_obs[:, -1, 3]
-        open_price = curr_obs[:, -1, 0]
-        relative_price = close_price / open_price
-
-        # end of day -> values have changed
-        self.weights = (relative_price * weights) / (np.dot(relative_price, weights) + self.eps)
-        self.port_value = port_value * np.dot(relative_price, weights)
+        # end of day -> nothing has changed because only cash
 
         # s_t = (X_t, w_{t-1}^{end}})
         curr_obs = curr_obs[:, :, 1:4]
