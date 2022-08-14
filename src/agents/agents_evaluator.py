@@ -7,6 +7,8 @@ from src.environments.portfolio_end import PortfolioEnd
 from src.agents.ddpg_agent import DDPGAgent
 from src.agents.crp_agent import CRPAgent
 from src.utils.file_utils import read_yaml_config
+from src.utils.data_utils import date_list, snp
+from empyrical import simple_returns
 from empyrical import sharpe_ratio, sortino_ratio, max_drawdown, value_at_risk, conditional_value_at_risk
 
 
@@ -24,8 +26,10 @@ class AgentsEvaluator:
         # plot_weights: True to plot agents' actions over time
         # num_cols: for plot_weights
 
+        date_format = '%Y-%m-%d'
+
         agent_metrics = []
-        agent_names = [agent.name for agent in self.agents_list]
+        agent_names = [agent.name for agent in self.agents_list] # for value plot legend
         
         if plot_values:
             fig1, ax1 = plt.subplots()
@@ -33,6 +37,31 @@ class AgentsEvaluator:
             stock_names = ['CASH', *self.env.stock_names]
             num_rows = int(np.ceil(len(stock_names) / num_cols))
             fig2, ax2 = plt.subplots(num_rows, num_cols)
+
+        if market: # also compare agents to market index
+            start_id = date_list.index(self.env.start_date)
+            end_id = date_list.index(self.env.end_date) + 1 # have to include day after last day
+            dates = date_list[start_id : end_id]
+            market_values = snp[start_id : end_id + 1, 3] # closing prices only
+            market_values = market_values / market_values[0] # starting value = 1
+            market_returns = simple_returns(market_values) # prices -> returns
+
+            # market statistics
+            agent_metrics.append({'agent': 'market',
+                                'sharpe_ratio': sharpe_ratio(market_returns),
+                                'sortino_ratio': sortino_ratio(market_returns),
+                                'max_drawdown': max_drawdown(market_returns),
+                                'var_95': value_at_risk(market_returns),
+                                'cvar_95': conditional_value_at_risk(market_returns)
+                                })
+
+            if plot_values:
+                df = {'date': dates, 'value': market_values[:-1]}
+                df = pd.DataFrame(df)
+                df['date'] = pd.to_datetime(df['date'], format=date_format)
+                df.set_index('date', inplace=True)
+                df.plot(ax=ax1, rot=30)
+                agent_names.insert(0, 'market')
 
         for agent in self.agents_list: # current agent to plot
             reward, info = agent.eval(self.env)
@@ -48,13 +77,8 @@ class AgentsEvaluator:
 
             if plot_values:
                 df = pd.DataFrame(info)
-                if market:
-                    df = df[['date', 's&p500', 'port_value_old']]
-                    agent_names.insert(0, 'market')
-                    market = False
-                else:
-                    df = df[['date', 'port_value_old']]
-                df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+                df = df[['date', 'port_value_old']]
+                df['date'] = pd.to_datetime(df['date'], format=date_format)
                 df.set_index('date', inplace=True)
                 df.plot(ax=ax1, rot=30)
 
@@ -65,22 +89,22 @@ class AgentsEvaluator:
                     stock_name = stock_names[stock_id] # current stock to plot
                     info_stock = [{'date': item['date'], agent.name: item['action'][stock_id]} for item in info]
                     df2 = pd.DataFrame(info_stock)
-                    df2['date'] = pd.to_datetime(df2['date'], format='%Y-%m-%d')
+                    df2['date'] = pd.to_datetime(df2['date'], format=date_format)
                     df2.set_index('date', inplace=True)
                     df2.plot(ax=ax2[row,col], title=stock_name, rot=30)
-
-        if plot_values:
-            ax1.legend(agent_names)
-            plt.show()
-
-        if plot_weights:
-            fig2.legend(stock_names)
-            plt.show()
 
         # print portfolio metrics
         agent_metrics = pd.DataFrame(agent_metrics)
         agent_metrics.set_index('agent', inplace=True)
         print(agent_metrics)
+
+        if plot_values: # plot agent generated portfolio values
+            ax1.legend(agent_names)
+            plt.show()
+
+        if plot_weights: # plot agents' action for each stock
+            fig2.legend(stock_names)
+            plt.show()
 
 
 def main():
