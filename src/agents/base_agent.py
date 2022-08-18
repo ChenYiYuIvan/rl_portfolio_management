@@ -3,6 +3,7 @@ import torch
 
 from src.utils.torch_utils import USE_CUDA
 
+# TODO: implement uniform buy and hold, best stock, best constant rebalanced portfolio
 
 class BaseAgent:
 

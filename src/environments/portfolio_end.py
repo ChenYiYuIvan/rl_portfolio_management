@@ -30,7 +30,7 @@ class PortfolioEnd(Portfolio):
 
         reward, reward_info = self._take_action(curr_obs, action, next_obs)
 
-        next_obs = next_obs[:, :, 1:4]
+        next_obs = next_obs[1:, :, 1:4] # remove cash data
         next_obs = np.transpose(next_obs, (2, 0, 1))
         # next_obs[i,j,k]:
         # - i = {0: high, 1: low, 2: close}
@@ -109,7 +109,7 @@ class PortfolioEnd(Portfolio):
         # end of day -> nothing has changed because only cash
 
         # s_t = (X_t, w_{t-1}^{end}})
-        curr_obs = curr_obs[:, :, 1:4]
+        curr_obs = curr_obs[1:, :, 1:4] # remove cash data
         curr_obs = np.transpose(curr_obs, (2, 0, 1))
         if self.normalize:
             close_price = curr_obs[2,:,-1]

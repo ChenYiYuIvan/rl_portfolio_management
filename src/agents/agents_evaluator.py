@@ -49,8 +49,8 @@ class AgentsEvaluator:
 
             # market statistics
             agent_metrics.append({'agent': 'market',
-                                'sharpe_ratio': sharpe_ratio(market_returns),
-                                'sortino_ratio': sortino_ratio(market_returns),
+                                'sharpe_ratio': sharpe_ratio(market_returns, annualization=len(market_returns)),
+                                'sortino_ratio': sortino_ratio(market_returns, annualization=len(market_returns)),
                                 'max_drawdown': max_drawdown(market_returns),
                                 'var_95': value_at_risk(market_returns),
                                 'cvar_95': conditional_value_at_risk(market_returns)
@@ -69,8 +69,8 @@ class AgentsEvaluator:
 
             rate_of_return = np.array([el['simple_return'] for el in info])
             agent_metrics.append({'agent': agent.name,
-                                  'sharpe_ratio': sharpe_ratio(rate_of_return),
-                                  'sortino_ratio': sortino_ratio(rate_of_return),
+                                  'sharpe_ratio': sharpe_ratio(rate_of_return, annualization=len(market_returns)),
+                                  'sortino_ratio': sortino_ratio(rate_of_return, annualization=len(market_returns)),
                                   'max_drawdown': max_drawdown(rate_of_return),
                                   'var_95': value_at_risk(rate_of_return),
                                   'cvar_95': conditional_value_at_risk(rate_of_return)
@@ -115,7 +115,7 @@ def main():
 
     seed = 42
 
-    env_config = read_yaml_config('env_default_train')
+    env_config = read_yaml_config('env_default_test')
     ddpg_config = read_yaml_config('ddpg_default')
 
     env = PortfolioEnd(env_config)
@@ -125,9 +125,9 @@ def main():
 
     crp = CRPAgent('crp', env, seed)
 
-    rng = RandomAgent('rng', env, seed)
+    #rng = RandomAgent('rng', env, seed)
 
-    evaluator = AgentsEvaluator(env, [rng, ddpg, crp])
+    evaluator = AgentsEvaluator(env, [ddpg, crp])
     evaluator.evaluate_all()
 
 

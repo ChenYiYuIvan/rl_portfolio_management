@@ -9,7 +9,7 @@ def main():
     seed = 42
 
     env_config_train = read_yaml_config('env_default_train')
-    env_config_test = read_yaml_config('env_default_train')
+    env_config_test = read_yaml_config('env_default_test')
     ddpg_config = read_yaml_config('ddpg_default')
 
     config = {'env_train':vars(env_config_train), 'env_test':vars(env_config_test), 'ddpg': vars(ddpg_config)}

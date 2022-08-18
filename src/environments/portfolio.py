@@ -13,6 +13,9 @@ class Portfolio(gym.Env):
     def __init__(self, config):
         super().__init__()
 
+        # no slippage assumption: transaction happens immediately
+        # -> stock prices are the same as when the order was put
+
         self.eps = 1e-8
 
         self.continuous = config.continuous  # bool to use continuous market assumption
@@ -24,11 +27,7 @@ class Portfolio(gym.Env):
 
         self.init_port_value = config.init_portfolio_value
 
-        if config.stock_names is None:
-            self.stock_names = ["AAPL", "ATVI", "CMCSA", "COST", "CSX", "DISH", "EA",
-                                "EBAY", "FB", "GOOGL", "HAS", "ILMN", "INTC", "MAR", "REGN", "SBUX"]
-        else:
-            self.stock_names = config.stock_names
+        self.stock_names = config.stock_names
 
         self.trading_cost = config.trading_cost
 

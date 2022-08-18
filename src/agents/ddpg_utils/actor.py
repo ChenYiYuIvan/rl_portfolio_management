@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from src.utils.torch_utils import FLOAT
 
 
 class Actor(nn.Module):
@@ -24,12 +25,18 @@ class Actor(nn.Module):
         x = self.relu(x)
 
         if len(w.shape) > 1:  # for batches
+            w = w[:, 1:]
             w_reshape = torch.reshape(w, (w.shape[0], 1, w.shape[1], 1))
             dim_cat = 1
+            cash_bias = torch.zeros(w.shape[0], 1, dtype=FLOAT, device=x.get_device())
         else:
+            w = w[1:]
             w_reshape = torch.reshape(w, (1, w.shape[0], 1))
             dim_cat = 0
+            cash_bias = torch.zeros(1, dtype=FLOAT, device=x.get_device())
         x = self.conv3(torch.cat((x, w_reshape), dim=dim_cat)).squeeze()
+
+        x = torch.cat((cash_bias, x), dim=dim_cat)
 
         x = self.softmax(dim_cat)(x)
 

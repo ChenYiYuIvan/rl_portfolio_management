@@ -1,7 +1,7 @@
 # default config for portfolio environment for testing
 
 start_date: "2016-03-22"
-end_date: "2018-02-07"
+end_date: "2018-02-06"
 window_length: 30
 stock_names:
   - AAPL
