@@ -3,11 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from src.environments.portfolio_end import PortfolioEnd
-from src.agents.ddpg_agent import DDPGAgent
-from src.agents.crp_agent import CRPAgent
-from src.agents.random_agent import RandomAgent
-from src.utils.file_utils import read_yaml_config
 from src.utils.data_utils import date_list, snp, plot_stock_values
 from empyrical import simple_returns
 from empyrical import sharpe_ratio, sortino_ratio, max_drawdown, value_at_risk, conditional_value_at_risk
@@ -109,28 +104,3 @@ class AgentsEvaluator:
         if plot_weights: # plot agents' action for each stock
             fig2.legend(stock_names)
             plt.show()
-
-
-def main():
-
-    seed = 42
-
-    env_config = read_yaml_config('env_default_test')
-    ddpg_config = read_yaml_config('ddpg_default')
-
-    env = PortfolioEnd(env_config)
-
-    ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
-    ddpg.load_actor_model('./checkpoints/checkpoints_ddpg/ddpg_ep499.pth')
-
-    crp = CRPAgent('crp', env, seed)
-
-    #rng = RandomAgent('rng', env, seed)
-
-    evaluator = AgentsEvaluator(env, [ddpg, crp])
-    evaluator.evaluate_all()
-
-
-if __name__ == '__main__':
-
-    main()

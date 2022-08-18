@@ -8,10 +8,10 @@ from src.agents.base_agent import BaseAgent
 
 from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
 
-from src.agents.ddpg_utils.actor import Actor
-from src.agents.ddpg_utils.critic import Critic
-from src.agents.ddpg_utils.replay_buffer import ReplayBuffer
-from src.agents.ddpg_utils.noise import OrnsteinUhlenbeckActionNoise
+from src.models.actor import Actor
+from src.models.critic import Critic
+from src.models.replay_buffer import ReplayBuffer
+from src.models.noise import OrnsteinUhlenbeckActionNoise
 
 from tqdm import tqdm
 import wandb
