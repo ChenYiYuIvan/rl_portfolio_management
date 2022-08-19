@@ -15,8 +15,8 @@ class BaseAgent:
         self.name = name
         self.env = env
 
-        self.state_dim = self.env.observation_space.shape
-        self.action_dim = self.env.action_space.shape[0]
+        self.state_dim = self.env.observation_space.shape # [price features, stocks, time window]
+        self.action_dim = self.env.action_space.shape[0] # cash + num stocks
 
 
     def eval(self, env, render = False):

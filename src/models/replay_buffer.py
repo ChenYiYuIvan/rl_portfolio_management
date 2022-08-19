@@ -48,7 +48,7 @@ class ReplayBuffer(object):
 
         a_batch = torch.tensor(np.array([_[1] for _ in batch]), dtype=FLOAT, device=self.device)  # action
         r_batch = torch.tensor(np.array([_[2] for _ in batch]), dtype=FLOAT, device=self.device)  # reward
-        t_batch = torch.tensor(np.array([_[3] for _ in batch]), dtype=torch.bool, device=self.device)  # done
+        t_batch = torch.tensor(np.array([_[3] for _ in batch]), dtype=FLOAT, device=self.device)  # done
 
         # for consistent shape
         r_batch = r_batch[:, None]
