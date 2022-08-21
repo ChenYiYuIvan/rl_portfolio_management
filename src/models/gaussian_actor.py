@@ -60,22 +60,23 @@ class GaussianActor(nn.Module):
         pi_distribution = Normal(mu, std)
         if not exploration:
             # Only used for evaluating policy at test time.
-            pi_action = mu
+            xs = mu
         else:
-            pi_action = pi_distribution.rsample()
+            xs = pi_distribution.rsample()
 
+        pi_action = torch.tanh(xs)
         if with_logprob:
             # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
-            # NOTE: The correction formula is a little bit magic. To get an understanding 
-            # of where it comes from, check out the original SAC paper (arXiv 1801.01290) 
-            # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
-            # Try deriving it yourself as a (very difficult) exercise. :)
-            logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
-            logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=-1)
+
+            #logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1, keepdim=True)
+            #logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=-1, keepdim=True)
+            
+            logp_pi = pi_distribution.log_prob(xs) - torch.log(1 - pi_action.pow(2) + 1e-8)
+            logp_pi = logp_pi.sum(dim=-1, keepdim=True)
         else:
             logp_pi = None
 
-        pi_action = torch.tanh(pi_action) # in [-1, 1]
+        #pi_action = torch.tanh(pi_action) # in [-1, 1]
 
         #pi_action = self.act_limit * pi_action # in [-lim, lim]
         pi_action = (pi_action + 1)
@@ -85,7 +86,7 @@ class GaussianActor(nn.Module):
             pi_action = torch.div(pi_action, div)
             pi_action = pi_action.transpose(0,1)
 
-            logp_pi = torch.reshape(logp_pi, (logp_pi.shape[0], 1))
+            #logp_pi = torch.reshape(logp_pi, (logp_pi.shape[0], 1))
         else:
             pi_action /= div
 

@@ -1,8 +1,8 @@
 import itertools
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.optim import Adam
+from torch.cuda import amp
 
 from src.agents.base_ac_agent import BaseACAgent
 
@@ -17,7 +17,12 @@ class SACAgent(BaseACAgent):
     def __init__(self, name, env, seed, args):
         super().__init__(name, env, seed, args)
 
-        self.alpha = args.alpha
+        # temperature and its optimizer
+        # for continuous action spaces, target entropy is -dim(action space)
+        self.target_entropy = -torch.prod(torch.tensor(self.env.action_space.shape, dtype=FLOAT, device=self.device))
+        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+        self.alpha = self.log_alpha.exp()
+        self.alpha_optim = Adam([self.log_alpha], lr=args.lr_alpha)
 
 
     def define_actors_critics(self, args):
@@ -33,9 +38,9 @@ class SACAgent(BaseACAgent):
         self.critic2_target = Critic(self.state_dim[2], self.action_dim, self.state_dim[1])
 
         # optimizers
-        critic_params = itertools.chain(self.critic1.parameters(), self.critic2.parameters())
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
-        self.critic_optim = Adam(critic_params, lr=args.lr_critic)
+        self.critic1_optim = Adam(self.critic1.parameters(), lr=args.lr_critic)
+        self.critic2_optim = Adam(self.critic2.parameters(), lr=args.lr_critic)
 
 
     def copy_params_to_target(self):
@@ -74,32 +79,95 @@ class SACAgent(BaseACAgent):
         # bellman backup for q functions
 
         # target actions come from "current" policy
-        a2_batch, logp_a2_pred_batch = self.actor(*s2_batch)
+        a2_batch, logprob_a2_batch = self.actor(*s2_batch)
 
         # target q-values
-        q1_pi_targ = self.critic1_target(*s2_batch, a2_batch)
-        q2_pi_targ = self.critic2_target(*s2_batch, a2_batch)
-        q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
-        backup = r_batch + self.gamma * (1 - t_batch) * (q_pi_targ - self.alpha * logp_a2_pred_batch)
+        next_q_values1 = self.critic1_target(*s2_batch, a2_batch)
+        next_q_values2 = self.critic2_target(*s2_batch, a2_batch)
+        next_q_values = torch.min(next_q_values1, next_q_values2)
+        target_q_batch = r_batch + self.gamma * (1 - t_batch) * (next_q_values - self.alpha.detach() * logprob_a2_batch)
 
         # mse loss against bellman backup
-        loss_q1 = mse_loss(q1_batch, backup)
-        loss_q2 = mse_loss(q2_batch, backup)
-        loss_q = loss_q1 + loss_q2
+        loss_q1 = mse_loss(q1_batch, target_q_batch)
+        loss_q2 = mse_loss(q2_batch, target_q_batch)
 
-        return loss_q
+        return loss_q1, loss_q2
 
 
     def compute_policy_loss(self, s_batch):
-        pred_batch, log_prob_pred_batch = self.actor(*s_batch)
-        q1_pi = self.critic1(*s_batch, pred_batch)
-        q2_pi = self.critic2(*s_batch, pred_batch)
+        a_pred_batch, logprob_a_pred_batch = self.actor(*s_batch)
+        q1_pi = self.critic1(*s_batch, a_pred_batch)
+        q2_pi = self.critic2(*s_batch, a_pred_batch)
         q_pi = torch.min(q1_pi, q2_pi)
 
         # entropy-regularized policy loss
-        loss_pi = (self.alpha * log_prob_pred_batch - q_pi).mean()
+        policy_loss = torch.mean(self.alpha.detach() * logprob_a_pred_batch - q_pi)
 
-        return loss_pi
+        # entropy = -logprob_a_pred_batch
+        return policy_loss, logprob_a_pred_batch
+
+
+    def compute_entropy_loss(self, logprob_a_pred_batch):
+        entropy_loss = -torch.mean(self.alpha * (logprob_a_pred_batch + self.target_entropy).detach())
+
+        return entropy_loss
+
+
+    def update(self, scaler, wandb_inst, step):
+
+        # sample batch
+        s_batch, a_batch, r_batch, t_batch, s2_batch = self.buffer.sample_batch(self.batch_size)
+
+        # set gradients to 0
+        self.critic1_optim.zero_grad()
+        self.critic2_optim.zero_grad()
+        self.actor_optim.zero_grad()
+        self.alpha_optim.zero_grad()
+
+        self.set_networks_grad('actor', False)
+
+        # compute loss for critic
+        with amp.autocast():
+            loss_q1, loss_q2 = self.compute_value_loss(s_batch, a_batch, r_batch, t_batch, s2_batch)
+
+        # backward pass for critics
+        scaler.scale(loss_q1).backward()
+        scaler.step(self.critic1_optim)
+
+        scaler.scale(loss_q2).backward()
+        scaler.step(self.critic2_optim)
+
+        # freeze critics, unfreze actor
+        self.set_networks_grad('actor', True)
+        self.set_networks_grad('critic', False)
+
+        # compute loss for actor and for temperature alpha
+        with amp.autocast():
+            policy_loss, logprob_a_pred_batch = self.compute_policy_loss(s_batch)
+
+        # backward pass for actor
+        scaler.scale(policy_loss).backward()
+        scaler.step(self.actor_optim)
+
+        # compute loss for temperature alpha
+        with amp.autocast():
+            entropy_loss = self.compute_entropy_loss(logprob_a_pred_batch)
+
+        # backward pass for alpha
+        scaler.scale(entropy_loss).backward()
+        scaler.step(self.alpha_optim)
+        self.alpha = self.log_alpha.exp() # update value of alpha to respect changes to log_alpha
+
+        # update
+        scaler.update()
+
+        self.set_networks_grad('critic', True)
+
+        # update target networks with polyak averaging
+        self.update_target_params()
+
+        # log to wandb
+        wandb_inst.log({'loss_q1': loss_q1, 'loss_q2': loss_q1, 'policy_loss': policy_loss}, step=step)
 
 
     def predict_action(self, obs, exploration=False):

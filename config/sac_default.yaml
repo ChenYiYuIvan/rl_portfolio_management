@@ -1,13 +1,14 @@
 # default config for sac
+name: SAC
 
 checkpoint_folder: checkpoints_sac
 
 num_episodes: 100
 eval_steps: 20
 batch_size: 64
-tau: 0.001
+tau: 0.005
 gamma: 0.99
-alpha: 0.2
 buffer_size: 100000
-lr_actor: 0.0001
-lr_critic: 0.001
+lr_actor: 0.0003
+lr_critic: 0.0003
+lr_alpha: 0.0003

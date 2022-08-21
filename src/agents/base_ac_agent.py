@@ -74,45 +74,8 @@ class BaseACAgent(BaseAgent):
         raise NotImplementedError
 
 
-    def update_policy(self, scaler):
-
-        # sample batch
-        s_batch, a_batch, r_batch, t_batch, s2_batch = self.buffer.sample_batch(self.batch_size)
-
-        # set gradients to 0
-        self.critic_optim.zero_grad()
-        self.actor_optim.zero_grad()
-
-        self.set_networks_grad('actor', False)
-
-        # compute loss for critic
-        with amp.autocast():
-            value_loss = self.compute_value_loss(s_batch, a_batch, r_batch, t_batch, s2_batch)
-
-        # backward pass for critic
-        scaler.scale(value_loss).backward()
-        scaler.step(self.critic_optim)
-
-        self.set_networks_grad('actor', True)
-        self.set_networks_grad('critic', False)
-
-        # compute loss for actor
-        with amp.autocast():
-            policy_loss = self.compute_policy_loss(s_batch)
-
-        # backward pass for actor
-        scaler.scale(policy_loss).backward()
-        scaler.step(self.actor_optim)
-
-        # update
-        scaler.update()
-
-        self.set_networks_grad('critic', True)
-
-        # update target netweoks
-        self.update_target_params()
-
-        return value_loss, policy_loss
+    def update(self, scaler, wandb_inst, step):
+        raise NotImplementedError
 
 
     def train(self, wandb_inst, env_test):
@@ -169,8 +132,7 @@ class BaseACAgent(BaseAgent):
 
                 # if replay buffer has enough observations
                 if self.buffer.size() >= self.batch_size:
-                    value_loss, policy_loss = self.update_policy(scaler)
-                    wandb_inst.log({'value_loss': value_loss, 'policy_loss': policy_loss}, step=step)
+                    self.update(scaler, wandb_inst, step)
 
                 ep_reward += reward
                 curr_obs = next_obs

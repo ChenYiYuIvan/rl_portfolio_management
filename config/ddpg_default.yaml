@@ -1,8 +1,9 @@
 # default config for ddpg
+name: DDPG
 
 checkpoint_folder: checkpoints_ddpg
 
-num_episodes: 500
+num_episodes: 100
 eval_steps: 20
 batch_size: 64
 tau: 0.001
