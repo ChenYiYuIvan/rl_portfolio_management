@@ -45,7 +45,7 @@ class BaseACAgent(BaseAgent):
         self.set_networks_grad('target', False)
 
         # define checkpoint folder
-        self.checkpoint_folder = f'./checkpoints/{args.checkpoint_folder}'
+        self.checkpoint_folder = f'./checkpoints/{args.checkpoint_folder}_{args.network_type}'
 
 
     def define_actors_critics(self, args):

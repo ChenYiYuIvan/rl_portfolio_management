@@ -3,7 +3,10 @@ name: DDPG
 
 checkpoint_folder: checkpoints_ddpg
 
-num_episodes: 100
+# cnn or lstm
+network_type: lstm 
+
+num_episodes: 200
 eval_steps: 20
 batch_size: 64
 tau: 0.001

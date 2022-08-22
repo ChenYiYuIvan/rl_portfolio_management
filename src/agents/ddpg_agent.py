@@ -10,6 +10,7 @@ from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
 
 from src.models.actor import Actor
 from src.models.critic import Critic
+from src.models.lstm_models import LSTMActor, LSTMCritic
 from src.models.noise import OrnsteinUhlenbeckActionNoise
 
 
@@ -23,14 +24,28 @@ class DDPGAgent(BaseACAgent):
 
 
     def define_actors_critics(self, args):
-        self.actor = Actor(self.state_dim[2], self.state_dim[1])
-        self.actor_target = Actor(self.state_dim[2], self.state_dim[1])
+        assert args.network_type in ('cnn', 'lstm')
+
+        num_price_features = self.state_dim[2]
+        window_length = self.state_dim[1]
+        num_stocks = self.state_dim[0]
+        if args.network_type == 'cnn':
+            self.actor = Actor(num_price_features, window_length)
+            self.actor_target = Actor(num_price_features, window_length)
+            
+            self.critic = Critic(num_price_features, self.action_dim, window_length)
+            self.critic_target = Critic(num_price_features, self.action_dim, window_length)
+            
+        elif args.network_type == 'lstm':
+            # add 1 to output_size for cash dimension
+            self.actor = LSTMActor(num_price_features * num_stocks, num_stocks+1)
+            self.actor_target = LSTMActor(num_price_features * num_stocks, num_stocks+1)
+
+            self.critic = LSTMCritic(num_price_features * num_stocks, num_stocks+1)
+            self.critic_target = LSTMCritic(num_price_features * num_stocks, num_stocks+1)
+            
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
-
-        self.critic = Critic(self.state_dim[2], self.action_dim, self.state_dim[1])
-        self.critic_target = Critic(self.state_dim[2], self.action_dim, self.state_dim[1])
         self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic)
-
 
     def copy_params_to_target(self):
         copy_params(self.actor_target, self.actor)
