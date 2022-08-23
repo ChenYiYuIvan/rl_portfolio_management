@@ -15,8 +15,8 @@ def main():
     ddpg_config = read_yaml_config('ddpg_default')
     sac_config = read_yaml_config('sac_default')
 
-    agent_config = ddpg_config
-    #agent_config = sac_config
+    #agent_config = ddpg_config
+    agent_config = sac_config
 
     config = {'env_train':vars(env_config_train), 'env_test':vars(env_config_test), 'agent': vars(agent_config)}
 
@@ -26,8 +26,8 @@ def main():
         env_train = PortfolioEnd(env_config_train)
         env_test = PortfolioEnd(env_config_test)
 
-        agent = DDPGAgent('ddpg', env_train, seed, ddpg_config)
-        #agent = SACAgent('sac', env_train, seed, sac_config)
+        #agent = DDPGAgent('ddpg', env_train, seed, ddpg_config)
+        agent = SACAgent('sac', env_train, seed, sac_config)
 
         agent.train(run, env_test)
         agent.eval(env_test, render=True)

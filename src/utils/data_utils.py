@@ -86,3 +86,11 @@ def plot_stock_values(start_date, end_date, num_cols = 4):
 
             df.plot(ax=axarr[row,col], title=name, rot=30, legend=False)
     plt.show()
+
+
+if __name__ == '__main__':
+
+    start_date = "2016-03-22"
+    end_date = "2018-02-06"
+
+    plot_stock_values(start_date, end_date)

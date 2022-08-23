@@ -3,12 +3,16 @@ name: SAC
 
 checkpoint_folder: checkpoints_sac
 
+# cnn or lstm
+network_type: lstm 
+
 num_episodes: 100
 eval_steps: 20
 batch_size: 64
 tau: 0.005
 gamma: 0.99
-buffer_size: 100000
-lr_actor: 0.0003
-lr_critic: 0.0003
-lr_alpha: 0.0003
+reward_scale: 10
+buffer_size: 10000
+lr_actor: 0.00001
+lr_critic: 0.001
+lr_alpha: 0.0001

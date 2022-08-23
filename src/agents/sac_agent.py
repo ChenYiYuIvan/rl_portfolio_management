@@ -10,6 +10,7 @@ from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
 
 from src.models.gaussian_actor import GaussianActor
 from src.models.critic import Critic
+from src.models.lstm_models import GaussianLSTMActor, LSTMCritic
 
 
 class SACAgent(BaseACAgent):
@@ -24,18 +25,39 @@ class SACAgent(BaseACAgent):
         self.alpha = self.log_alpha.exp()
         self.alpha_optim = Adam([self.log_alpha], lr=args.lr_alpha)
 
+        self.reward_scale = args.reward_scale
+
 
     def define_actors_critics(self, args):
-        # policy function
-        self.actor = GaussianActor(self.state_dim[2], self.state_dim[1])
+        assert args.network_type in ('cnn', 'lstm')
 
-        # state-value function (soft q-function)
-        self.critic1 = Critic(self.state_dim[2], self.action_dim, self.state_dim[1])
-        self.critic2 = Critic(self.state_dim[2], self.action_dim, self.state_dim[1])
+        num_price_features = self.state_dim[2]
+        window_length = self.state_dim[1]
+        num_stocks = self.state_dim[0]
 
-        # target networks for soft q-functions
-        self.critic1_target = Critic(self.state_dim[2], self.action_dim, self.state_dim[1])
-        self.critic2_target = Critic(self.state_dim[2], self.action_dim, self.state_dim[1])
+        if args.network_type == 'cnn':
+            # policy function
+            self.actor = GaussianActor(num_price_features, window_length)
+
+            # state-value function (soft q-function)
+            self.critic1 = Critic(num_price_features, self.action_dim, window_length)
+            self.critic2 = Critic(num_price_features, self.action_dim, window_length)
+
+            # target networks for soft q-functions
+            self.critic1_target = Critic(num_price_features, self.action_dim, window_length)
+            self.critic2_target = Critic(num_price_features, self.action_dim, window_length)
+
+        elif args.network_type == 'lstm':
+            # policy function
+            self.actor = GaussianLSTMActor(num_price_features * num_stocks, self.action_dim)
+
+            # state-value function (soft q-function)
+            self.critic1 = LSTMCritic(num_price_features * num_stocks, self.action_dim)
+            self.critic2 = LSTMCritic(num_price_features * num_stocks, self.action_dim)
+
+            # target networks for soft q-functions
+            self.critic1_target = LSTMCritic(num_price_features * num_stocks, self.action_dim)
+            self.critic2_target = LSTMCritic(num_price_features * num_stocks, self.action_dim)
 
         # optimizers
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
@@ -117,6 +139,9 @@ class SACAgent(BaseACAgent):
 
         # sample batch
         s_batch, a_batch, r_batch, t_batch, s2_batch = self.buffer.sample_batch(self.batch_size)
+
+        # reward scaling
+        r_batch = self.reward_scale * r_batch
 
         # set gradients to 0
         self.critic1_optim.zero_grad()
