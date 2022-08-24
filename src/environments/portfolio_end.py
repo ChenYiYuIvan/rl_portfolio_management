@@ -53,7 +53,9 @@ class PortfolioEnd(Portfolio):
         # 2
         weights2 = action
         remaining_value = self._get_remaining_value(weights1, weights2)
-        assert remaining_value <= 1, 'Transaction cost is bigger than current portfolio value'
+        if remaining_value < 0 or remaining_value > 1:
+            print(remaining_value)
+            raise ValueError
         port_value2 = remaining_value * port_value1
 
         # 3

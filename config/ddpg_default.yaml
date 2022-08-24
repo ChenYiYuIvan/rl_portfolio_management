@@ -6,11 +6,11 @@ checkpoint_folder: checkpoints_ddpg
 # cnn or lstm
 network_type: lstm 
 
-num_episodes: 200
-eval_steps: 20
+num_episodes: 100
+eval_steps: 10
 batch_size: 64
 tau: 0.001
 gamma: 0.99
-buffer_size: 100000
+buffer_size: 10000
 lr_actor: 0.0001
 lr_critic: 0.001

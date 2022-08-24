@@ -16,7 +16,7 @@ class Portfolio(gym.Env):
         # no slippage assumption: transaction happens immediately
         # -> stock prices are the same as when the order was put
 
-        self.eps = 1e-8
+        self.eps = 1e-6
 
         self.continuous = config.continuous  # bool to use continuous market assumption
         self.normalize = config.normalize  # divide price matrix by close price of time t
@@ -77,8 +77,9 @@ class Portfolio(gym.Env):
         # weights3 = softmax(action)  # new portfolio weights (sum = 1)
         weights3 = action
         remaining_value = self._get_remaining_value(weights2, weights3)
-        assert remaining_value >= 0, 'Transaction cost is bigger than current portfolio value'
-        assert remaining_value <= 1, 'Transaction cost less than 0'
+        if remaining_value < 0 or remaining_value > 1:
+            print(remaining_value)
+            raise ValueError
         port_value3 = remaining_value * port_value2
 
         if not self.continuous:

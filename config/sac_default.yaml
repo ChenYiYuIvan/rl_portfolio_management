@@ -7,12 +7,15 @@ checkpoint_folder: checkpoints_sac
 network_type: lstm 
 
 num_episodes: 100
-eval_steps: 20
+eval_steps: 10
 batch_size: 64
 tau: 0.005
 gamma: 0.99
-reward_scale: 10
+reward_scale: 20
 buffer_size: 10000
 lr_actor: 0.00001
 lr_critic: 0.001
-lr_alpha: 0.0001
+
+alpha_tuning: False
+alpha: 0.2 # use this if alpha_tuning is False
+lr_alpha: 0.0001 # use this if alpha_tuning is True

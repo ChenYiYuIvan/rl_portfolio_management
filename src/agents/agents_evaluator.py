@@ -16,7 +16,7 @@ class AgentsEvaluator:
         self.agents_list = agents_list
 
 
-    def evaluate_all(self, stock=False, market=True, plot_values=True, plot_weights=True, num_cols=5):
+    def evaluate_all(self, plot_stocks=False, market=True, plot_values=True, plot_weights=True, num_cols=5):
         # market: True to plot SPY values with other agents
         # plot_values: True to plot agents' values
         # plot_weights: True to plot agents' actions over time
@@ -87,20 +87,23 @@ class AgentsEvaluator:
                     df2 = pd.DataFrame(info_stock)
                     df2['date'] = pd.to_datetime(df2['date'], format=date_format)
                     df2.set_index('date', inplace=True)
-                    df2.plot(ax=ax2[row,col], title=stock_name, rot=30)
+                    df2.plot(ax=ax2[row,col], title=stock_name, rot=30, legend=False)
 
         # print portfolio metrics
         agent_metrics = pd.DataFrame(agent_metrics)
         agent_metrics.set_index('agent', inplace=True)
         print(agent_metrics)
 
-        if stock: # plot stock values
-            plot_stock_values(self.env.start_date, self.env.end_date)
-
         if plot_values: # plot agent generated portfolio values
             ax1.legend(agent_names)
-            plt.show()
 
         if plot_weights: # plot agents' action for each stock
-            fig2.legend(stock_names)
-            plt.show()
+            if market:
+                fig2.legend(agent_names[1:])
+            else:
+                fig2.legend(agent_names)
+
+        if plot_stocks: # plot stock values
+            plot_stock_values(self.env, num_cols=num_cols)
+
+        plt.show()

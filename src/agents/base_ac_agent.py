@@ -118,6 +118,8 @@ class BaseACAgent(BaseAgent):
             # keep sampling until done
             done = False
             while not done:
+                step += 1
+                
                 # select action
                 if self.buffer.size() >= self.batch_size:
                     action = self.predict_action(curr_obs, True)
@@ -140,15 +142,20 @@ class BaseACAgent(BaseAgent):
                 tq.update(1)
                 tq.set_postfix(ep_reward='%.6f' % ep_reward)
 
-                wandb_inst.log({'episode': episode, 'reward_train': reward}, step=step)
-                step += 1
+                wandb_inst.log({'episode': episode,
+                                'reward_train': reward,
+                                'port_value': info_train['port_value_old'],
+                                'log_return': info_train['log_return'],
+                                'simple_return': info_train['simple_return'],
+                                'trans_cost': info_train['cost']}, step=step)
 
             tq.close()
             print(f"Episode reward: {ep_reward}")
-            wandb_inst.log({'episode_reward_train': ep_reward}, step=step)
+            wandb_inst.log({'episode_reward_train': ep_reward,
+                            'episode_port_value': info_train['port_value_old']}, step=step)
 
             # evaluate model every few episodes
-            if episode % self.eval_steps == self.eval_steps - 1:
+            if episode % self.eval_steps == self.eval_steps - 1 or episode == 0:
                 ep_reward_val, infos_eval = self.eval(env_test, render=False)
                 print(f"Episode reward - eval: {ep_reward_val}")
                 wandb_inst.log({'episode_reward_eval': ep_reward_val}, step=step)

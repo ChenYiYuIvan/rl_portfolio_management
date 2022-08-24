@@ -21,9 +21,14 @@ class SACAgent(BaseACAgent):
         # temperature and its optimizer
         # for continuous action spaces, target entropy is -dim(action space)
         self.target_entropy = -torch.prod(torch.tensor(self.env.action_space.shape, dtype=FLOAT, device=self.device))
-        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
-        self.alpha = self.log_alpha.exp()
-        self.alpha_optim = Adam([self.log_alpha], lr=args.lr_alpha)
+        
+        self.alpha_tuning = args.alpha_tuning
+        if self.alpha_tuning: # automatic tuning of temperature parameter
+            self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+            self.alpha = self.log_alpha.exp()
+            self.alpha_optim = Adam([self.log_alpha], lr=args.lr_alpha)
+        else: # fixed temperature
+            self.alpha = args.alpha
 
         self.reward_scale = args.reward_scale
 
@@ -107,7 +112,11 @@ class SACAgent(BaseACAgent):
         next_q_values1 = self.critic1_target(*s2_batch, a2_batch)
         next_q_values2 = self.critic2_target(*s2_batch, a2_batch)
         next_q_values = torch.min(next_q_values1, next_q_values2)
-        target_q_batch = r_batch + self.gamma * (1 - t_batch) * (next_q_values - self.alpha.detach() * logprob_a2_batch)
+        if self.alpha_tuning:
+            alpha = self.alpha.detach()
+        else:
+            alpha = self.alpha
+        target_q_batch = r_batch + self.gamma * (1 - t_batch) * (next_q_values - alpha * logprob_a2_batch)
 
         # mse loss against bellman backup
         loss_q1 = mse_loss(q1_batch, target_q_batch)
@@ -123,7 +132,11 @@ class SACAgent(BaseACAgent):
         q_pi = torch.min(q1_pi, q2_pi)
 
         # entropy-regularized policy loss
-        policy_loss = torch.mean(self.alpha.detach() * logprob_a_pred_batch - q_pi)
+        if self.alpha_tuning:
+            alpha = self.alpha.detach()
+        else:
+            alpha = self.alpha
+        policy_loss = torch.mean(alpha * logprob_a_pred_batch - q_pi)
 
         # entropy = -logprob_a_pred_batch
         return policy_loss, logprob_a_pred_batch
@@ -147,7 +160,8 @@ class SACAgent(BaseACAgent):
         self.critic1_optim.zero_grad()
         self.critic2_optim.zero_grad()
         self.actor_optim.zero_grad()
-        self.alpha_optim.zero_grad()
+        if self.alpha_tuning:
+            self.alpha_optim.zero_grad()
 
         self.set_networks_grad('actor', False)
 
@@ -174,14 +188,15 @@ class SACAgent(BaseACAgent):
         scaler.scale(policy_loss).backward()
         scaler.step(self.actor_optim)
 
-        # compute loss for temperature alpha
-        with amp.autocast():
-            entropy_loss = self.compute_entropy_loss(logprob_a_pred_batch)
+        if self.alpha_tuning:
+            # compute loss for temperature alpha
+            with amp.autocast():
+                entropy_loss = self.compute_entropy_loss(logprob_a_pred_batch)
 
-        # backward pass for alpha
-        scaler.scale(entropy_loss).backward()
-        scaler.step(self.alpha_optim)
-        self.alpha = self.log_alpha.exp() # update value of alpha to respect changes to log_alpha
+            # backward pass for alpha
+            scaler.scale(entropy_loss).backward()
+            scaler.step(self.alpha_optim)
+            self.alpha = self.log_alpha.exp() # update value of alpha to respect changes to log_alpha
 
         # update
         scaler.update()
@@ -192,7 +207,8 @@ class SACAgent(BaseACAgent):
         self.update_target_params()
 
         # log to wandb
-        wandb_inst.log({'loss_q1': loss_q1, 'loss_q2': loss_q1, 'policy_loss': policy_loss}, step=step)
+        wandb_inst.log({'loss_q1': loss_q1, 'loss_q2': loss_q1, 'policy_loss': policy_loss,
+                        'alpha': self.alpha}, step=step)
 
 
     def predict_action(self, obs, exploration=False):

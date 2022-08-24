@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import yfinance as yf
 import datetime as dt
 
+
 # to load all the data into a script, simply import this file
 start_date = '2013-02-08'
 end_date = '2018-02-07'
@@ -62,18 +63,21 @@ hist_data = np.concatenate((cash_data, hist_data), axis=0)
 stock_names = ['CASH', *stock_names]
 
 
-def plot_stock_values(start_date, end_date, num_cols = 4):
-    assert start_date in date_list, 'start date is not valid'
-    assert end_date in date_list, 'end date is not valid'
+def plot_stock_values(env, num_cols = 4):
 
+    start_date = env.start_date
+    end_date = env.end_date
     start_id = date_list.index(start_date)
     end_id = date_list.index(end_date)
 
-    data = hist_data[1:, start_id:end_id+1, 3]
+    stocks = env.stock_names
+    stocks_id = [stock_names.index(stock) for stock in stocks]
+
+    data = hist_data[stocks_id, start_id:end_id+1, 3] # only closing prices
     
     num_rows = int(np.ceil(data.shape[0] / num_cols))
 
-    fig, axarr = plt.subplots(num_rows, num_cols)
+    fig, axarr = plt.subplots(num_rows, num_cols, squeeze=False)
     for row in range(num_rows):
         for col in range(num_cols):
             stock_id = col + row*num_cols
@@ -87,10 +91,3 @@ def plot_stock_values(start_date, end_date, num_cols = 4):
             df.plot(ax=axarr[row,col], title=name, rot=30, legend=False)
     plt.show()
 
-
-if __name__ == '__main__':
-
-    start_date = "2016-03-22"
-    end_date = "2018-02-06"
-
-    plot_stock_values(start_date, end_date)
