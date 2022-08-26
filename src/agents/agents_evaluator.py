@@ -16,7 +16,7 @@ class AgentsEvaluator:
         self.agents_list = agents_list
 
 
-    def evaluate_all(self, plot_stocks=False, market=True, plot_values=True, plot_weights=True, num_cols=5):
+    def evaluate_all(self, market=True, plot_stocks=False, plot_values=True, plot_weights=True, num_cols=5):
         # market: True to plot SPY values with other agents
         # plot_values: True to plot agents' values
         # plot_weights: True to plot agents' actions over time
@@ -60,7 +60,7 @@ class AgentsEvaluator:
                 agent_names.insert(0, 'market')
 
         for agent in self.agents_list: # current agent to plot
-            reward, info = agent.eval(self.env)
+            reward, info, end_port_value = agent.eval(self.env)
 
             rate_of_return = np.array([el['simple_return'] for el in info])
             agent_metrics.append({'agent': agent.name,

@@ -45,4 +45,4 @@ def main(agent_name):
 
 if __name__ == '__main__':
 
-    main('sac')
+    main('ddpg')

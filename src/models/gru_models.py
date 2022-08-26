@@ -4,13 +4,13 @@ from torch.distributions.normal import Normal
 from src.utils.data_utils import EPS
 
 
-class DeterministicLSTMActor(nn.Module):
+class DeterministicGRUActor(nn.Module):
     # represents the policy function
 
     def __init__(self, input_size, output_size):
         super().__init__()
 
-        self.lstm = nn.LSTM(input_size, output_size, num_layers=2, batch_first=True)
+        self.gru = nn.GRU(input_size, output_size, num_layers=2, batch_first=True)
         
         self.fc1 = nn.Linear(2*output_size,128) # input = state + past action
         self.fc2 = nn.Linear(128,64)
@@ -33,7 +33,7 @@ class DeterministicLSTMActor(nn.Module):
         #x = torch.transpose(x, 1, 3) # so as to have [batch, time window, stock, high/low/close]
         x = x.flatten(2) # so as to have [batch, time window, features]
 
-        _, (x,_) = self.lstm(x)
+        _, x = self.gru(x)
         x = self.leaky_relu(x[-1,:,:]) # take only hidden state of last layer
 
         # concatenate past action to state
@@ -59,13 +59,13 @@ class DeterministicLSTMActor(nn.Module):
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20
 
-class GaussianLSTMActor(nn.Module):
+class GaussianGRUActor(nn.Module):
     # represents the policy function
 
     def __init__(self, input_size, output_size):
         super().__init__()
 
-        self.lstm = nn.LSTM(input_size, output_size, num_layers=2, batch_first=True)
+        self.gru = nn.GRU(input_size, output_size, num_layers=2, batch_first=True)
         
         self.fc1 = nn.Linear(2*output_size,128) # input = state + past action
         self.fc2 = nn.Linear(128,64)
@@ -90,7 +90,7 @@ class GaussianLSTMActor(nn.Module):
         #x = torch.transpose(x, 1, 3) # so as to have [batch, time window, stock, high/low/close]
         x = x.flatten(2) # so as to have [batch, time window, features]
 
-        _, (x,_) = self.lstm(x)
+        _, x = self.gru(x)
         x = self.leaky_relu(x[-1,:,:]) # take only hidden state of last layer
 
         # concatenate past action to state
@@ -137,13 +137,13 @@ class GaussianLSTMActor(nn.Module):
             param.requires_grad = req
 
 
-class LSTMCritic(nn.Module):
+class GRUCritic(nn.Module):
     # represents the policy function
 
     def __init__(self, input_size, output_size):
         super().__init__()
 
-        self.lstm = nn.LSTM(input_size, output_size, num_layers=2, batch_first=True)
+        self.gru = nn.GRU(input_size, output_size, num_layers=2, batch_first=True)
         
         self.fc1 = nn.Linear(3*output_size,128) # input = state + past action + action
         self.fc2 = nn.Linear(128,64)
@@ -167,7 +167,7 @@ class LSTMCritic(nn.Module):
         #x = torch.transpose(x, 1, 3) # so as to have [batch, time window, stock, high/low/close]
         x = x.flatten(2) # so as to have [batch, time window, features]
         
-        _, (x,_) = self.lstm(x)
+        _, x = self.gru(x)
         x = self.leaky_relu(x[-1,:,:]) # take only hidden state of last layer
 
         # concatenate past action to state
@@ -189,3 +189,23 @@ class LSTMCritic(nn.Module):
     def requires_grad(self, req):
         for param in self.parameters():
             param.requires_grad = req
+
+
+class DoubleGRUCritic(nn.Module):
+    # double critics for sac
+
+    def __init__(self, input_size, output_size):
+        super().__init__()
+
+        self.Q1 = GRUCritic(input_size, output_size)
+        self.Q2 = GRUCritic(input_size, output_size)
+
+
+    def forward(self, x, w, action):
+        # x = state
+        # w = past action
+
+        q1 = self.Q1(x, w, action)
+        q2 = self.Q2(x, w, action)
+
+        return q1, q2

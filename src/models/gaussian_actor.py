@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
 from src.utils.torch_utils import FLOAT
+from src.utils.data_utils import EPS
 
 
 # TODO: improve code
@@ -71,7 +72,7 @@ class GaussianActor(nn.Module):
             #logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1, keepdim=True)
             #logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=-1, keepdim=True)
             
-            logp_pi = pi_distribution.log_prob(xs) - torch.log(1 - pi_action.pow(2) + 1e-8)
+            logp_pi = pi_distribution.log_prob(xs) - torch.log(1 - pi_action.pow(2) + EPS)
             logp_pi = logp_pi.sum(dim=-1, keepdim=True)
         else:
             logp_pi = None

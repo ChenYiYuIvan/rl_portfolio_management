@@ -11,6 +11,7 @@ from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
 from src.models.gaussian_actor import GaussianActor
 from src.models.critic import Critic
 from src.models.lstm_models import GaussianLSTMActor, LSTMCritic
+from src.models.gru_models import GaussianGRUActor, GRUCritic
 
 
 class SACAgent(BaseACAgent):
@@ -34,13 +35,12 @@ class SACAgent(BaseACAgent):
 
 
     def define_actors_critics(self, args):
-        assert args.network_type in ('cnn', 'lstm')
 
         num_price_features = self.state_dim[2]
         window_length = self.state_dim[1]
         num_stocks = self.state_dim[0]
 
-        if args.network_type == 'cnn':
+        if self.network_type == 'cnn':
             # policy function
             self.actor = GaussianActor(num_price_features, window_length)
 
@@ -52,7 +52,7 @@ class SACAgent(BaseACAgent):
             self.critic1_target = Critic(num_price_features, self.action_dim, window_length)
             self.critic2_target = Critic(num_price_features, self.action_dim, window_length)
 
-        elif args.network_type == 'lstm':
+        elif self.network_type == 'lstm':
             # policy function
             self.actor = GaussianLSTMActor(num_price_features * num_stocks, self.action_dim)
 
@@ -63,6 +63,18 @@ class SACAgent(BaseACAgent):
             # target networks for soft q-functions
             self.critic1_target = LSTMCritic(num_price_features * num_stocks, self.action_dim)
             self.critic2_target = LSTMCritic(num_price_features * num_stocks, self.action_dim)
+
+        elif self.network_type == 'gru':
+            # policy function
+            self.actor = GaussianGRUActor(num_price_features * num_stocks, self.action_dim)
+
+            # state-value function (soft q-function)
+            self.critic1 = GRUCritic(num_price_features * num_stocks, self.action_dim)
+            self.critic2 = GRUCritic(num_price_features * num_stocks, self.action_dim)
+
+            # target networks for soft q-functions
+            self.critic1_target = GRUCritic(num_price_features * num_stocks, self.action_dim)
+            self.critic2_target = GRUCritic(num_price_features * num_stocks, self.action_dim)
 
         # optimizers
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)

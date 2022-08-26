@@ -3,13 +3,14 @@ name: DDPG
 
 checkpoint_folder: checkpoints_ddpg
 
-# cnn or lstm
-network_type: lstm 
+# cnn or lstm or gru
+network_type: gru
 
 num_episodes: 100
-eval_steps: 10
+warmup_steps: 500
+eval_steps: 1
 batch_size: 64
-tau: 0.001
+tau: 0.005
 gamma: 0.99
 buffer_size: 10000
 lr_actor: 0.0001

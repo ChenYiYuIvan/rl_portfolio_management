@@ -5,6 +5,7 @@ from torch.cuda import amp
 from src.agents.base_agent import BaseAgent
 
 from src.utils.torch_utils import USE_CUDA
+from src.utils.data_utils import prices_to_logreturns, remove_not_used, rnn_transpose, cnn_transpose
 
 from src.models.replay_buffer import ReplayBuffer
 
@@ -18,6 +19,20 @@ class BaseACAgent(BaseAgent):
     def __init__(self, name, env, seed, args):
         super().__init__(name, env, seed)
         
+        # network type
+        assert args.network_type in ('cnn', 'lstm', 'gru')
+        self.network_type = args.network_type
+
+        # hyper-parameters
+        self.num_episodes = args.num_episodes
+        self.warmup_steps = args.warmup_steps
+        self.batch_size = args.batch_size
+        self.tau = args.tau # for polyak averaging
+        self.gamma = args.gamma # for bellman equation
+
+        # evaluate model every few episodes
+        self.eval_steps = args.eval_steps
+
         # define actors and critics networks and optimizers
         self.define_actors_critics(args)
 
@@ -26,15 +41,6 @@ class BaseACAgent(BaseAgent):
 
         # define replay buffer
         self.buffer = ReplayBuffer(args.buffer_size)
-
-        # hyper-parameters
-        self.num_episodes = args.num_episodes
-        self.batch_size = args.batch_size
-        self.tau = args.tau # for polyak averaging
-        self.gamma = args.gamma # for bellman equation
-
-        # evaluate model every few episodes
-        self.eval_steps = args.eval_steps
 
         # cpu or gpu
         self.device = torch.device("cuda:0" if USE_CUDA else "cpu")
@@ -45,7 +51,7 @@ class BaseACAgent(BaseAgent):
         self.set_networks_grad('target', False)
 
         # define checkpoint folder
-        self.checkpoint_folder = f'./checkpoints/{args.checkpoint_folder}_{args.network_type}'
+        self.checkpoint_folder = f'./checkpoints/{args.checkpoint_folder}_{args.network_type}_{self.state_dim[0]}'
 
 
     def define_actors_critics(self, args):
@@ -110,7 +116,8 @@ class BaseACAgent(BaseAgent):
             self.set_train()
 
             # initial state of environment
-            curr_obs = self.env.reset()  # may need to normalize obs
+            curr_obs = self.env.reset()
+            curr_obs = self.preprocess_data(curr_obs)
 
             # initialize values
             ep_reward = 0
@@ -121,14 +128,15 @@ class BaseACAgent(BaseAgent):
                 step += 1
                 
                 # select action
-                if self.buffer.size() >= self.batch_size:
+                if self.buffer.size() >= self.batch_size and step >= self.warmup_steps:
                     action = self.predict_action(curr_obs, True)
                 else:
                     action = self.random_action()
 
                 # step forward environment
-                next_obs, reward, done, info_train = self.env.step(action)  # may need to normalize obs
-                
+                next_obs, reward, done, info_train = self.env.step(action)
+                next_obs = self.preprocess_data(next_obs)
+
                 # add to buffer
                 self.buffer.add(curr_obs, action, reward, done, next_obs)
 
@@ -143,22 +151,23 @@ class BaseACAgent(BaseAgent):
                 tq.set_postfix(ep_reward='%.6f' % ep_reward)
 
                 wandb_inst.log({'episode': episode,
-                                'reward_train': reward,
-                                'port_value': info_train['port_value_old'],
-                                'log_return': info_train['log_return'],
-                                'simple_return': info_train['simple_return'],
-                                'trans_cost': info_train['cost']}, step=step)
+                                'step_reward_train': reward,
+                                'step_port_value': info_train['port_value_old'],
+                                'step_log_return': info_train['log_return'],
+                                'step_simple_return': info_train['simple_return'],
+                                'step_trans_cost': info_train['cost']}, step=step)
 
             tq.close()
             print(f"Episode reward: {ep_reward}")
-            wandb_inst.log({'episode_reward_train': ep_reward,
-                            'episode_port_value': info_train['port_value_old']}, step=step)
+            wandb_inst.log({'ep_reward_train': ep_reward,
+                            'ep_port_value_train': info_train['port_value_old']}, step=step)
 
             # evaluate model every few episodes
             if episode % self.eval_steps == self.eval_steps - 1 or episode == 0:
-                ep_reward_val, infos_eval = self.eval(env_test, render=False)
-                print(f"Episode reward - eval: {ep_reward_val}")
-                wandb_inst.log({'episode_reward_eval': ep_reward_val}, step=step)
+                ep_reward_val, infos_eval, ep_port_value_val = self.eval(env_test, render=False)
+                print(f"Episode final portfolio value - eval: {ep_port_value_val}")
+                wandb_inst.log({'ep_reward_eval': ep_reward_val,
+                                'ep_port_value_eval': ep_port_value_val}, step=step)
 
                 # store info data in table (both train and eval)
                 # store train data only every few steps to reduce memory consuption
@@ -184,13 +193,24 @@ class BaseACAgent(BaseAgent):
 
 
     def eval(self, env, render = False):
-
         self.set_eval()
         return super().eval(env, render)
 
 
     def predict_action(self, obs, exploration=False):
         raise NotImplementedError
+
+
+    def preprocess_data(self, obs):
+        prices, weights = obs
+        prices = remove_not_used(prices)
+        prices = prices_to_logreturns(prices)
+        if self.network_type == 'cnn':
+            prices = cnn_transpose(prices)
+        elif self.network_type == 'lstm' or self.network_type == 'gru':
+            prices = rnn_transpose(prices)
+
+        return (prices, weights)
 
 
     def load_actor_model(self, path):
@@ -203,6 +223,7 @@ class BaseACAgent(BaseAgent):
 
     def set_eval(self):
         raise NotImplementedError
+
 
     def cuda(self):
         raise NotImplementedError

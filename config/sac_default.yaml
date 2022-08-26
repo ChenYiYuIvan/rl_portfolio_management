@@ -3,19 +3,20 @@ name: SAC
 
 checkpoint_folder: checkpoints_sac
 
-# cnn or lstm
-network_type: lstm 
+# cnn or lstm or gru
+network_type: gru
 
 num_episodes: 100
-eval_steps: 10
+warmup_steps: 500
+eval_steps: 1
 batch_size: 64
 tau: 0.005
 gamma: 0.99
 reward_scale: 20
 buffer_size: 10000
-lr_actor: 0.00001
-lr_critic: 0.001
+lr_actor: 0.0003
+lr_critic: 0.0003
 
-alpha_tuning: False
+alpha_tuning: True
 alpha: 0.2 # use this if alpha_tuning is False
-lr_alpha: 0.0001 # use this if alpha_tuning is True
+lr_alpha: 0.0003 # use this if alpha_tuning is True

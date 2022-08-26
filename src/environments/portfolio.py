@@ -4,6 +4,7 @@ from src.environments.market import Market
 from empyrical import sharpe_ratio, max_drawdown
 import pandas as pd
 import matplotlib.pyplot as plt
+from src.utils.data_utils import EPS
 
 
 class Portfolio(gym.Env):
@@ -15,8 +16,6 @@ class Portfolio(gym.Env):
 
         # no slippage assumption: transaction happens immediately
         # -> stock prices are the same as when the order was put
-
-        self.eps = 1e-6
 
         self.continuous = config.continuous  # bool to use continuous market assumption
         self.normalize = config.normalize  # divide price matrix by close price of time t
@@ -129,7 +128,7 @@ class Portfolio(gym.Env):
 
     def _get_remaining_value(self, weights_old, weights_new, iters=10):
         # initial value
-        remaining_value = self.trading_cost * np.abs(weights_new - weights_old).sum()
+        remaining_value = 1 - self.trading_cost * np.abs(weights_new - weights_old).sum()
 
         # fixed point iteration
         def cost(mu): return (1 - self.trading_cost*weights_old[0] - (2*self.trading_cost - self.trading_cost**2)*np.sum(
@@ -139,11 +138,11 @@ class Portfolio(gym.Env):
         
         # barely above 1
         diff_up = np.maximum(0, remaining_value - 1)
-        if diff_up > 0 and diff_up < self.eps:
+        if diff_up > 0 and diff_up < EPS:
             remaining_value = 1
         # barely below 0
         diff_down = np.minimum(0, remaining_value)
-        if diff_down < 0 and diff_down > -self.eps:
+        if diff_down < 0 and diff_down > -EPS:
             remaining_value = 0
         
         return remaining_value

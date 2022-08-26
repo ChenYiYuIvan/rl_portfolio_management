@@ -28,7 +28,8 @@ class BaseAgent:
         print("Begin eval!")
 
         # initial state of environment
-        curr_obs = env.reset()  # may need to normalize obs
+        curr_obs = env.reset()
+        curr_obs = self.preprocess_data(curr_obs)
 
         # initialize values
         infos = []
@@ -41,16 +42,20 @@ class BaseAgent:
             action = self.predict_action(curr_obs)
 
             # step forward environment
-            next_obs, reward, done, info = env.step(action)  # may need to normalize obs
+            next_obs, reward, done, info = env.step(action)
+            next_obs = self.preprocess_data(next_obs)
+
             infos.append(info)
 
             ep_reward += reward
             curr_obs = next_obs
 
+        end_port_value = info['port_value_new']
+
         if render:
             env.render()
 
-        return ep_reward, infos
+        return ep_reward, infos, end_port_value
 
 
     def random_action(self):
@@ -62,6 +67,10 @@ class BaseAgent:
 
     def predict_action(self, obs):
         raise NotImplementedError
+
+
+    def preprocess_data(self, obs):
+        return obs
 
 
     def seed(self,s):

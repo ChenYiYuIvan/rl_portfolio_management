@@ -8,18 +8,18 @@ stock_names:
   - ATVI
   - CMCSA
   - COST
-  #- CSX
-  #- DISH
-  #- EA
-  #- EBAY
-  #- FB
-  #- GOOGL
-  #- HAS
-  #- ILMN
-  #- INTC
-  #- MAR
-  #- REGN
-  #- SBUX
+  - CSX
+  - DISH
+  - EA
+  - EBAY
+  - FB
+  - GOOGL
+  - HAS
+  - ILMN
+  - INTC
+  - MAR
+  - REGN
+  - SBUX
 init_portfolio_value: 1
 trading_cost: 0.002
 continuous: false

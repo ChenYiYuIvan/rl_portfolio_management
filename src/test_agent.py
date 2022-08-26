@@ -18,17 +18,17 @@ def main():
     env = PortfolioEnd(env_config)
 
     ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
-    ddpg.load_actor_model('./checkpoints/checkpoints_ddpg_lstm/ddpg_ep0.pth')
+    ddpg.load_actor_model('./checkpoints/checkpoints_ddpg_gru_16/ddpg_ep94.pth')
 
     sac = SACAgent('sac', env, seed, sac_config)
-    sac.load_actor_model('./checkpoints/checkpoints_sac_lstm/sac_ep0.pth')
+    sac.load_actor_model('./checkpoints/checkpoints_sac_gru_16/sac_ep24.pth')
 
     crp = CRPAgent('crp', env, seed)
 
     #rng = RandomAgent('rng', env, seed)
 
     evaluator = AgentsEvaluator(env, [ddpg, sac, crp])
-    evaluator.evaluate_all(num_cols=2, plot_stocks=True)
+    evaluator.evaluate_all(num_cols=4, plot_stocks=True)
 
 
 if __name__ == '__main__':
