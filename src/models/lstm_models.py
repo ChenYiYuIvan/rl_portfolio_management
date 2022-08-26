@@ -189,3 +189,28 @@ class LSTMCritic(nn.Module):
     def requires_grad(self, req):
         for param in self.parameters():
             param.requires_grad = req
+
+
+class DoubleLSTMCritic(nn.Module):
+    # double critics for sac
+
+    def __init__(self, input_size, output_size):
+        super().__init__()
+
+        self.Q1 = LSTMCritic(input_size, output_size)
+        self.Q2 = LSTMCritic(input_size, output_size)
+
+
+    def forward(self, x, w, action):
+        # x = state
+        # w = past action
+
+        q1 = self.Q1(x, w, action)
+        q2 = self.Q2(x, w, action)
+
+        return q1, q2
+
+
+    def requires_grad(self, req):
+        self.Q1.requires_grad(req)
+        self.Q2.requires_grad(req)

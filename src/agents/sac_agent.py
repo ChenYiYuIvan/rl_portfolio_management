@@ -9,9 +9,9 @@ from src.agents.base_ac_agent import BaseACAgent
 from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
 
 from src.models.gaussian_actor import GaussianActor
-from src.models.critic import Critic
-from src.models.lstm_models import GaussianLSTMActor, LSTMCritic
-from src.models.gru_models import GaussianGRUActor, GRUCritic
+from src.models.critic import DoubleCritic
+from src.models.lstm_models import GaussianLSTMActor, DoubleLSTMCritic
+from src.models.gru_models import GaussianGRUActor, DoubleGRUCritic
 
 
 class SACAgent(BaseACAgent):
@@ -45,51 +45,42 @@ class SACAgent(BaseACAgent):
             self.actor = GaussianActor(num_price_features, window_length)
 
             # state-value function (soft q-function)
-            self.critic1 = Critic(num_price_features, self.action_dim, window_length)
-            self.critic2 = Critic(num_price_features, self.action_dim, window_length)
+            self.critic = DoubleCritic(num_price_features, self.action_dim, window_length)
 
             # target networks for soft q-functions
-            self.critic1_target = Critic(num_price_features, self.action_dim, window_length)
-            self.critic2_target = Critic(num_price_features, self.action_dim, window_length)
+            self.critic_target = DoubleCritic(num_price_features, self.action_dim, window_length)
 
         elif self.network_type == 'lstm':
             # policy function
             self.actor = GaussianLSTMActor(num_price_features * num_stocks, self.action_dim)
 
             # state-value function (soft q-function)
-            self.critic1 = LSTMCritic(num_price_features * num_stocks, self.action_dim)
-            self.critic2 = LSTMCritic(num_price_features * num_stocks, self.action_dim)
+            self.critic = DoubleLSTMCritic(num_price_features * num_stocks, self.action_dim)
 
             # target networks for soft q-functions
-            self.critic1_target = LSTMCritic(num_price_features * num_stocks, self.action_dim)
-            self.critic2_target = LSTMCritic(num_price_features * num_stocks, self.action_dim)
+            self.critic_target = DoubleLSTMCritic(num_price_features * num_stocks, self.action_dim)
 
         elif self.network_type == 'gru':
             # policy function
             self.actor = GaussianGRUActor(num_price_features * num_stocks, self.action_dim)
 
             # state-value function (soft q-function)
-            self.critic1 = GRUCritic(num_price_features * num_stocks, self.action_dim)
-            self.critic2 = GRUCritic(num_price_features * num_stocks, self.action_dim)
+            self.critic = DoubleGRUCritic(num_price_features * num_stocks, self.action_dim)
 
             # target networks for soft q-functions
-            self.critic1_target = GRUCritic(num_price_features * num_stocks, self.action_dim)
-            self.critic2_target = GRUCritic(num_price_features * num_stocks, self.action_dim)
+            self.critic_target = DoubleGRUCritic(num_price_features * num_stocks, self.action_dim)
 
         # optimizers
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
-        self.critic1_optim = Adam(self.critic1.parameters(), lr=args.lr_critic)
-        self.critic2_optim = Adam(self.critic2.parameters(), lr=args.lr_critic)
+        self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic)
 
 
     def copy_params_to_target(self):
-        copy_params(self.critic1_target, self.critic1)
-        copy_params(self.critic2_target, self.critic2)
+        copy_params(self.critic_target, self.critic)
 
 
     def update_target_params(self):
-        update_params(self.critic1_target, self.critic1, self.tau)
-        update_params(self.critic2_target, self.critic2, self.tau)
+        update_params(self.critic_target, self.critic, self.tau)
 
 
     def set_networks_grad(self, networks, requires_grad):
@@ -101,19 +92,16 @@ class SACAgent(BaseACAgent):
         if networks == 'actor':
             self.actor.requires_grad(requires_grad)
         elif networks == 'critic':
-            self.critic1.requires_grad(requires_grad)
-            self.critic2.requires_grad(requires_grad)
+            self.critic.requires_grad(requires_grad)
         elif networks == 'target':
-            self.critic1_target.requires_grad(requires_grad)
-            self.critic2_target.requires_grad(requires_grad)
+            self.critic_target.requires_grad(requires_grad)
 
 
     def compute_value_loss(self, s_batch, a_batch, r_batch, t_batch, s2_batch):
         mse_loss = nn.MSELoss()
 
         # soft q values
-        q1_batch = self.critic1(*s_batch, a_batch)
-        q2_batch = self.critic2(*s_batch, a_batch)
+        q1_batch, q2_batch = self.critic(*s_batch, a_batch)
 
         # bellman backup for q functions
 
@@ -121,8 +109,7 @@ class SACAgent(BaseACAgent):
         a2_batch, logprob_a2_batch = self.actor(*s2_batch)
 
         # target q-values
-        next_q_values1 = self.critic1_target(*s2_batch, a2_batch)
-        next_q_values2 = self.critic2_target(*s2_batch, a2_batch)
+        next_q_values1, next_q_values2 = self.critic_target(*s2_batch, a2_batch)
         next_q_values = torch.min(next_q_values1, next_q_values2)
         if self.alpha_tuning:
             alpha = self.alpha.detach()
@@ -134,13 +121,14 @@ class SACAgent(BaseACAgent):
         loss_q1 = mse_loss(q1_batch, target_q_batch)
         loss_q2 = mse_loss(q2_batch, target_q_batch)
 
-        return loss_q1, loss_q2
+        critic_loss = loss_q1 + loss_q2
+
+        return critic_loss
 
 
     def compute_policy_loss(self, s_batch):
         a_pred_batch, logprob_a_pred_batch = self.actor(*s_batch)
-        q1_pi = self.critic1(*s_batch, a_pred_batch)
-        q2_pi = self.critic2(*s_batch, a_pred_batch)
+        q1_pi, q2_pi = self.critic(*s_batch, a_pred_batch)
         q_pi = torch.min(q1_pi, q2_pi)
 
         # entropy-regularized policy loss
@@ -169,8 +157,7 @@ class SACAgent(BaseACAgent):
         r_batch = self.reward_scale * r_batch
 
         # set gradients to 0
-        self.critic1_optim.zero_grad()
-        self.critic2_optim.zero_grad()
+        self.critic_optim.zero_grad()
         self.actor_optim.zero_grad()
         if self.alpha_tuning:
             self.alpha_optim.zero_grad()
@@ -179,14 +166,11 @@ class SACAgent(BaseACAgent):
 
         # compute loss for critic
         with amp.autocast():
-            loss_q1, loss_q2 = self.compute_value_loss(s_batch, a_batch, r_batch, t_batch, s2_batch)
+            q_loss = self.compute_value_loss(s_batch, a_batch, r_batch, t_batch, s2_batch)
 
         # backward pass for critics
-        scaler.scale(loss_q1).backward()
-        scaler.step(self.critic1_optim)
-
-        scaler.scale(loss_q2).backward()
-        scaler.step(self.critic2_optim)
+        scaler.scale(q_loss).backward()
+        scaler.step(self.critic_optim)
 
         # freeze critics, unfreze actor
         self.set_networks_grad('actor', True)
@@ -219,7 +203,7 @@ class SACAgent(BaseACAgent):
         self.update_target_params()
 
         # log to wandb
-        wandb_inst.log({'loss_q1': loss_q1, 'loss_q2': loss_q1, 'policy_loss': policy_loss,
+        wandb_inst.log({'q_loss': q_loss, 'policy_loss': policy_loss, 'entropy_loss': entropy_loss,
                         'alpha': self.alpha}, step=step)
 
 
@@ -241,22 +225,16 @@ class SACAgent(BaseACAgent):
 
     def set_train(self):
         self.actor.train()
-        self.critic1.train()
-        self.critic1_target.train()
-        self.critic2.train()
-        self.critic2_target.train()
+        self.critic.train()
+        self.critic_target.train()
 
 
     def set_eval(self):
         self.actor.eval()
-        self.critic1.eval()
-        self.critic1_target.eval()
-        self.critic2.eval()
-        self.critic2_target.eval()
+        self.critic.eval()
+        self.critic_target.eval()
 
     def cuda(self):
         self.actor.cuda()
-        self.critic1.cuda()
-        self.critic1_target.cuda()
-        self.critic2.cuda()
-        self.critic2_target.cuda()
+        self.critic.cuda()
+        self.critic_target.cuda()

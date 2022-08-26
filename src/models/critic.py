@@ -52,3 +52,28 @@ class Critic(nn.Module):
     def requires_grad(self, req):
         for param in self.parameters():
             param.requires_grad = req
+
+
+class DoubleCritic(nn.Module):
+    # double critics for sac
+
+    def __init__(self, in_channels, num_assets, window_length):
+        super().__init__()
+
+        self.Q1 = Critic(in_channels, num_assets, window_length)
+        self.Q2 = Critic(in_channels, num_assets, window_length)
+
+
+    def forward(self, x, w, action):
+        # x = state
+        # w = past action
+
+        q1 = self.Q1(x, w, action)
+        q2 = self.Q2(x, w, action)
+
+        return q1, q2
+
+    
+    def requires_grad(self, req):
+        self.Q1.requires_grad(req)
+        self.Q2.requires_grad(req)

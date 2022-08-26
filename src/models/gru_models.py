@@ -209,3 +209,8 @@ class DoubleGRUCritic(nn.Module):
         q2 = self.Q2(x, w, action)
 
         return q1, q2
+
+
+    def requires_grad(self, req):
+        self.Q1.requires_grad(req)
+        self.Q2.requires_grad(req)
