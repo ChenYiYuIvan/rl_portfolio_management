@@ -1,5 +1,6 @@
 from src.environments.portfolio import Portfolio
 from src.utils.data_utils import EPS
+from empyrical import sharpe_ratio, sortino_ratio, max_drawdown, value_at_risk, conditional_value_at_risk
 import numpy as np
 import gym
 
@@ -30,11 +31,11 @@ class PortfolioEnd(Portfolio):
         curr_obs, next_obs, done = self.market.step()
         # obs shape: [stocks, time window, price features]
 
-        reward, reward_info = self._take_action(curr_obs, action, next_obs)
+        action_info = self._take_action(curr_obs, action, next_obs)
 
         next_state = (next_obs, self.weights)
 
-        return next_state, reward, done, reward_info
+        return next_state, done, action_info
 
 
     def _take_action(self, curr_obs, action, next_obs):
@@ -58,13 +59,20 @@ class PortfolioEnd(Portfolio):
         weights3 = (relative_price * weights2) / (np.dot(relative_price, weights2) + EPS)
         port_value3 = port_value2 * np.dot(relative_price, weights2)
 
-        # reward
+        # possible reward signals
         log_return = np.log((port_value3 + EPS) / (port_value1 + EPS))
         simple_return = port_value3 / port_value1 - 1
 
-        reward = log_return
-
-        reward_info = {
+        if len(self.simple_ret_vec) == 0:
+            self.simple_ret_vec = np.array([simple_return])
+            curr_sharpe_ratio = 0
+            curr_sortino_ratio = 0
+        else:
+            self.simple_ret_vec = np.append(self.simple_ret_vec, simple_return)
+            curr_sharpe_ratio = sharpe_ratio(self.simple_ret_vec, annualization=len(self.simple_ret_vec))
+            curr_sortino_ratio = sortino_ratio(self.simple_ret_vec, annualization=len(self.simple_ret_vec))
+        
+        action_info = {
             'time_period': self.market.next_step - 1,
             'date': self.market.step_to_date(),
             'curr_obs': curr_obs,
@@ -77,22 +85,27 @@ class PortfolioEnd(Portfolio):
             'port_value_new': port_value3,
             'log_return': log_return,
             'simple_return': simple_return,
-            'reward': reward,
+            'sharpe_ratio': curr_sharpe_ratio,
+            'sortino_ratio': curr_sortino_ratio,
+            'max_drawdown': max_drawdown(self.simple_ret_vec),
+            'var_95': value_at_risk(self.simple_ret_vec),
+            'cvar_95': conditional_value_at_risk(self.simple_ret_vec),
             's&p500': self.market.snp[self.market.next_step - 1, 3] / self.market.snp[0, 3] * self.init_port_value,
         }
 
         # update values
         self.weights = weights3
         self.port_value = port_value3
-        self.infos.append(reward_info)
+        self.infos.append(action_info)
 
-        return reward, reward_info
+        return action_info
 
 
     def reset(self):
         # reset environment to initial state
 
         self.infos = []
+        self.simple_ret_vec = [] # vector of simple returns
 
         # assume that starting portfolio is all cash
         self.weights = np.array([1] + [0 for _ in range(len(self.stock_names))])

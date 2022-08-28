@@ -11,5 +11,5 @@ class CRPAgent(BaseAgent):
         super().__init__(name, env, seed)
 
 
-    def predict_action(self, obs):
+    def predict_action(self, obs, exploration=False):
         return np.ones(self.action_dim) / self.action_dim

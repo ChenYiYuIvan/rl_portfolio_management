@@ -16,7 +16,7 @@ class AgentsEvaluator:
         self.agents_list = agents_list
 
 
-    def evaluate_all(self, market=True, plot_stocks=False, plot_values=True, plot_weights=True, num_cols=5):
+    def evaluate_all(self, exploration=False, market=True, plot_stocks=False, plot_values=True, plot_weights=True, num_cols=5):
         # market: True to plot SPY values with other agents
         # plot_values: True to plot agents' values
         # plot_weights: True to plot agents' actions over time
@@ -60,19 +60,20 @@ class AgentsEvaluator:
                 agent_names.insert(0, 'market')
 
         for agent in self.agents_list: # current agent to plot
-            reward, info, end_port_value = agent.eval(self.env)
-
-            rate_of_return = np.array([el['simple_return'] for el in info])
-            agent_metrics.append({'agent': agent.name,
-                                  'sharpe_ratio': sharpe_ratio(rate_of_return, annualization=len(market_returns)),
-                                  'sortino_ratio': sortino_ratio(rate_of_return, annualization=len(market_returns)),
-                                  'max_drawdown': max_drawdown(rate_of_return),
-                                  'var_95': value_at_risk(rate_of_return),
-                                  'cvar_95': conditional_value_at_risk(rate_of_return)
-                                  })
+            reward, infos, end_port_value = agent.eval(self.env, exploration=exploration)
+            
+            info = infos[-1]
+            agent_metrics.append({
+                'agent': agent.name,
+                'sharpe_ratio': info['sharpe_ratio'],
+                'sortino_ratio': info['sortino_ratio'],
+                'max_drawdown': info['max_drawdown'],
+                'var_95': info['var_95'],
+                'cvar_95': info['cvar_95'],
+            })
 
             if plot_values:
-                df = pd.DataFrame(info)
+                df = pd.DataFrame(infos)
                 df = df[['date', 'port_value_old']]
                 df['date'] = pd.to_datetime(df['date'], format=date_format)
                 df.set_index('date', inplace=True)
@@ -83,7 +84,7 @@ class AgentsEvaluator:
                     row = int(stock_id / num_cols) # current row in figure
                     col = stock_id % num_cols # current col in figure
                     stock_name = stock_names[stock_id] # current stock to plot
-                    info_stock = [{'date': item['date'], agent.name: item['action'][stock_id]} for item in info]
+                    info_stock = [{'date': item['date'], agent.name: item['action'][stock_id]} for item in infos]
                     df2 = pd.DataFrame(info_stock)
                     df2['date'] = pd.to_datetime(df2['date'], format=date_format)
                     df2.set_index('date', inplace=True)

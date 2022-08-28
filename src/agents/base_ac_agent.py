@@ -9,6 +9,8 @@ from src.utils.data_utils import prices_to_logreturns, remove_not_used, rnn_tran
 
 from src.models.replay_buffer import ReplayBuffer
 
+from empyrical import sharpe_ratio, sortino_ratio
+
 from tqdm import tqdm
 import wandb
 import os
@@ -22,6 +24,10 @@ class BaseACAgent(BaseAgent):
         # network type
         assert args.network_type in ('cnn', 'lstm', 'gru')
         self.network_type = args.network_type
+
+        # reward signal
+        assert args.reward_type in ('log_return', 'simple_return', 'sharpe_ratio', 'sortino_ratio')
+        self.reward_type = args.reward_type
 
         # hyper-parameters
         self.num_episodes = args.num_episodes
@@ -90,12 +96,6 @@ class BaseACAgent(BaseAgent):
         wandb_inst.watch(self.actor)
         artifact = wandb.Artifact(name=self.name, type='model')
 
-        # create table to store actions for wandb
-        table_train = []
-        table_eval = []
-        columns = ['episode', 'date', 'value_before', 'trans_cost', 'reward', 'CASH', *self.env.stock_names]
-
-
         # creating directory to store models if it doesn't exist
         if not os.path.isdir(self.checkpoint_folder):
             os.makedirs(self.checkpoint_folder)
@@ -120,7 +120,7 @@ class BaseACAgent(BaseAgent):
             curr_obs = self.preprocess_data(curr_obs)
 
             # initialize values
-            ep_reward = 0
+            ep_reward_train = 0
 
             # keep sampling until done
             done = False
@@ -134,7 +134,8 @@ class BaseACAgent(BaseAgent):
                     action = self.random_action()
 
                 # step forward environment
-                next_obs, reward, done, info_train = self.env.step(action)
+                next_obs, done, info_action = self.env.step(action)
+                reward = self.get_reward(info_action)
                 next_obs = self.preprocess_data(next_obs)
 
                 # add to buffer
@@ -144,38 +145,43 @@ class BaseACAgent(BaseAgent):
                 if self.buffer.size() >= self.batch_size:
                     self.update(scaler, wandb_inst, step)
 
-                ep_reward += reward
+                ep_reward_train += reward
                 curr_obs = next_obs
 
                 tq.update(1)
-                tq.set_postfix(ep_reward='%.6f' % ep_reward)
+                tq.set_postfix(ep_reward='%.6f' % ep_reward_train)
 
-                wandb_inst.log({'episode': episode,
-                                'step_reward_train': reward,
-                                'step_port_value': info_train['port_value_old'],
-                                'step_log_return': info_train['log_return'],
-                                'step_simple_return': info_train['simple_return'],
-                                'step_trans_cost': info_train['cost']}, step=step)
+                # logging
+                stocks_names = ['CASH', *self.env.stock_names]
+                stocks_names = [f'step_{name}' for name in stocks_names]
+                data_to_log = dict(zip(stocks_names, action))
+                data_to_log.update({
+                    'episode': episode,
+                    'step_reward_train': reward,
+                    'step_port_value': info_action['port_value_old'],
+                    'step_trans_cost': info_action['cost'],
+                    'step_log_return': info_action['log_return'],
+                    'step_simple_return': info_action['simple_return'],
+                    'step_sharpe_ratio': info_action['sharpe_ratio'],
+                    'step_sortino_ratio': info_action['sortino_ratio'],
+                    'step_max_drawdown': info_action['max_drawdown'],
+                    'step_var_95': info_action['var_95'],
+                    'step_cvar_95': info_action['cvar_95'],
+                })
+
+                wandb_inst.log(data_to_log, step=step)
 
             tq.close()
-            print(f"Episode reward: {ep_reward}")
-            wandb_inst.log({'ep_reward_train': ep_reward,
-                            'ep_port_value_train': info_train['port_value_old']}, step=step)
+            print(f"Train - Episode final portfolio value: {info_action['port_value_old']} | Episode total reward: {ep_reward_train}")
+            wandb_inst.log({'ep_reward_train': ep_reward_train,
+                            'ep_port_value_train': info_action['port_value_old']}, step=step)
 
             # evaluate model every few episodes
             if episode % self.eval_steps == self.eval_steps - 1 or episode == 0:
                 ep_reward_val, infos_eval, ep_port_value_val = self.eval(env_test, render=False)
-                print(f"Episode final portfolio value - eval: {ep_port_value_val}")
+                print(f"Eval - Episode final portfolio value: {ep_port_value_val} | Episode total reward: {ep_reward_val}")
                 wandb_inst.log({'ep_reward_eval': ep_reward_val,
                                 'ep_port_value_eval': ep_port_value_val}, step=step)
-
-                # store info data in table (both train and eval)
-                # store train data only every few steps to reduce memory consuption
-                table_train.append([episode, info_train['date'], info_train['port_value_old'], info_train['cost'],
-                    info_train['reward'], *info_train['action']])
-                for info_eval in infos_eval:
-                    table_eval.append([episode, info_eval['date'], info_eval['port_value_old'], info_eval['cost'],
-                        info_eval['reward'], *info_eval['action']])
 
                 if ep_reward_val > max_ep_reward_val:
                     max_ep_reward_val = ep_reward_val
@@ -187,14 +193,12 @@ class BaseACAgent(BaseAgent):
                 torch.save(self.actor.state_dict(), actor_path_name)
                 artifact.add_file(actor_path_name, name=f'{self.name}_ep{episode}.pth')
 
-        wandb_inst.log({'table_train': wandb.Table(columns=columns, data=table_train)})
-        wandb_inst.log({'table_eval': wandb.Table(columns=columns, data=table_eval)})
         wandb_inst.log_artifact(artifact)
 
 
-    def eval(self, env, render = False):
+    def eval(self, env, exploration=False, render=False):
         self.set_eval()
-        return super().eval(env, render)
+        return super().eval(env, exploration=exploration, render=render)
 
 
     def predict_action(self, obs, exploration=False):
