@@ -40,9 +40,10 @@ def main(agent_name):
             agent = SACAgent('sac', env_train, seed, agent_config)
 
             agent.train(run, env_test)
-            agent.eval(env_test, render=True)
+            agent.eval(env_test, render=False)
 
 
 if __name__ == '__main__':
 
     main('sac')
+    main('ddpg')

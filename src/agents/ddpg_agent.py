@@ -54,7 +54,8 @@ class DDPGAgent(BaseACAgent):
             self.critic_target = GRUCritic(num_price_features * num_stocks, self.action_dim)
             
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
-        self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic)
+        self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic, weight_decay=1e-2)
+
 
     def copy_params_to_target(self):
         copy_params(self.actor_target, self.actor)

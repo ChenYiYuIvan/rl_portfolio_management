@@ -1,13 +1,11 @@
 # default config for sac
 name: SAC
 
-checkpoint_folder: checkpoints_sac
-
 # cnn or lstm or gru
 network_type: gru
 
 # log_return, simple_return, sharpe_ratio, sortino_ratio, max_drawdown, var_95, cvar_95
-reward_type: log_return
+reward_type: sharpe_ratio
 
 num_episodes: 100
 warmup_steps: 500
@@ -15,10 +13,10 @@ eval_steps: 1
 batch_size: 64
 tau: 0.005
 gamma: 0.99
-reward_scale: 20
+reward_scale: 100
 buffer_size: 10000
-lr_actor: 0.0001
-lr_critic: 0.001
+lr_actor: 0.0003
+lr_critic: 0.0003
 
 alpha_tuning: True
 alpha: 0.2 # use this if alpha_tuning is False

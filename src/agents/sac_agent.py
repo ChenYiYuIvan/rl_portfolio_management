@@ -32,6 +32,7 @@ class SACAgent(BaseACAgent):
             self.alpha = args.alpha
 
         self.reward_scale = args.reward_scale
+        self.checkpoint_folder += f'_scale{self.reward_scale}'
 
 
     def define_actors_critics(self, args):
@@ -203,8 +204,9 @@ class SACAgent(BaseACAgent):
         self.update_target_params()
 
         # log to wandb
-        wandb_inst.log({'q_loss': q_loss, 'policy_loss': policy_loss, 'entropy_loss': entropy_loss,
-                        'alpha': self.alpha}, step=step)
+        wandb_inst.log({'q_loss': q_loss, 'policy_loss': policy_loss, 'alpha': self.alpha}, step=step)
+        if self.alpha_tuning:
+            wandb_inst.log({'entropy_loss': entropy_loss}, step=step)
 
 
     def predict_action(self, obs, exploration=False):

@@ -107,6 +107,17 @@ def prices_to_logreturns(prices):
     return log_rets
 
 
+def prices_to_simplereturns(prices):
+    # shape: [num_stocks, window_length, price_features]
+
+    new = prices[:, 1:, :]
+    old = prices[:, :-1, :]
+
+    simple_rets = np.divide(new, old) - 1
+
+    return simple_rets
+
+
 def remove_not_used(prices, cash=True, volume=True, open=True, high=False, low=False):
     # shape: [num_stocks, window_length, price_features]
     # True to remove
