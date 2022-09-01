@@ -4,8 +4,8 @@ name: SAC
 # cnn or lstm or gru
 network_type: gru
 
-# log_return, simple_return, sharpe_ratio, sortino_ratio, max_drawdown, var_95, cvar_95
-reward_type: sharpe_ratio
+# log_return, simple_return, diff_sharpe_ratio, diff_sortino_ratio
+reward_type: diff_sharpe_ratio
 
 num_episodes: 100
 warmup_steps: 500

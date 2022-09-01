@@ -1,8 +1,8 @@
 # default config for portfolio environment for training
 
-start_date: "2013-03-22"
+start_date: "2013-04-22"
 end_date: "2016-02-05"
-window_length: 30
+window_length: 50
 stock_names:
   - AAPL
   - ATVI

@@ -19,10 +19,10 @@ def main():
     env = PortfolioEnd(env_config)
 
     ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
-    ddpg.load_actor_model('./checkpoints/DDPG_gru_stocks16_batch256/ddpg_ep1.pth')
+    ddpg.load_actor_model('./checkpoints/DDPG_gru_stocks16_batch64_window50/ddpg_ep99.pth')
 
     sac = SACAgent('sac', env, seed, sac_config)
-    sac.load_actor_model('./checkpoints/SAC_gru_stocks16_batch64_scale100/sac_ep1.pth')
+    sac.load_actor_model('./checkpoints/SAC_gru_diff_sharpe_ratio_stocks16_batch64_window50_scale100/sac_ep12.pth')
 
     crp = CRPAgent('crp', env, seed)
 

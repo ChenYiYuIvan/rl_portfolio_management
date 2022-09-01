@@ -26,7 +26,7 @@ class BaseACAgent(BaseAgent):
         self.network_type = args.network_type
 
         # reward signal
-        assert args.reward_type in ('log_return', 'simple_return', 'sharpe_ratio', 'sortino_ratio')
+        assert args.reward_type in ('log_return', 'simple_return', 'diff_sharpe_ratio', 'diff_sortino_ratio')
         self.reward_type = args.reward_type
 
         # hyper-parameters
@@ -57,7 +57,13 @@ class BaseACAgent(BaseAgent):
         self.set_networks_grad('target', False)
 
         # define checkpoint folder
-        self.checkpoint_folder = f'./checkpoints/{args.name}_{args.network_type}_stocks{self.state_dim[0]}_batch{args.batch_size}_window{self.env.window_length}'
+        self.checkpoint_folder = f'./checkpoints/{args.name}_{args.network_type}_{args.reward_type}_stocks{self.state_dim[0]}_batch{args.batch_size}_window{self.env.window_length}'
+
+        # initialization of parameters for differential sharpe ratio and differential downside deviation ratio
+        self.eta = 1e-3
+        self.A = 0
+        self.B = 1
+        self.DD = 1
 
 
     def define_actors_critics(self, args):
@@ -215,6 +221,33 @@ class BaseACAgent(BaseAgent):
             prices = rnn_transpose(prices)
 
         return (prices, weights)
+
+
+    def get_reward(self, info):
+        if self.reward_type in ('log_return, simple_return'):
+            return super().get_reward(info)
+        elif self.reward_type == 'diff_sharpe_ratio':
+            deltaA = info['simple_return'] - self.A
+            deltaB = info['simple_return']**2 - self.B
+            reward = (self.B * deltaA - self.A * deltaB / 2) / (self.B - self.A**2)**(3/2)
+
+            self.A = self.A + self.eta * deltaA
+            self.B = self.B + self.eta * deltaB
+
+        elif self.reward_type == 'diff_sortino_ratio':
+            # also called differential downside deviation ratio
+            if info['simple_return'] > 0:
+                num = info['simple_return'] - self.A / 2
+                denom = self.DD
+            else:
+                num = self.DD**2 * (info['simple_return'] - self.A / 2) - self.A * info['simple_return']**2 / 2
+                denom = self.DD**3
+            reward = num / denom
+
+            self.A = self.A + self.eta * (info['simple_return'] - self.A)
+            self.DD = np.sqrt(self.DD**2 + self.eta * (np.minimum(info['simple_return'], 0)**2 - self.DD**2))
+
+        return reward
 
 
     def load_actor_model(self, path):

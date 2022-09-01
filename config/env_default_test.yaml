@@ -1,8 +1,8 @@
 # default config for portfolio environment for testing
 
-start_date: "2016-03-22"
+start_date: "2016-04-20"
 end_date: "2018-02-06"
-window_length: 30
+window_length: 50
 stock_names:
   - AAPL
   - ATVI

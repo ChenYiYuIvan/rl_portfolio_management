@@ -1,5 +1,6 @@
 from src.environments.portfolio import Portfolio
-from src.utils.data_utils import EPS
+from src.utils.data_utils import EPS, prices_to_simplereturns
+from src.utils.portfolio_utils import get_sharpe_ratio
 from empyrical import sharpe_ratio, sortino_ratio, max_drawdown, value_at_risk, conditional_value_at_risk
 import numpy as np
 import gym
@@ -114,6 +115,13 @@ class PortfolioEnd(Portfolio):
         # open, low, high, close, volume data of day 0
         # curr_obs shape: [stocks, time window, price features]
         curr_obs = self.market.reset()
+
+        # initialize values needed for differential sharpe ratio (A_t and B_t)
+        # A_t = first moment of returns
+        # B_t = second momento of returns
+        # initial portfolio is all cash 
+        
+
 
         # end of day -> nothing has changed because only cash
 

@@ -1,6 +1,6 @@
 import numpy as np
 from src.agents.base_agent import BaseAgent
-from src.utils.markowitz_utils import get_opt_portfolio
+from src.utils.portfolio_utils import get_opt_portfolio
 
 
 class MPTAgent(BaseAgent):
