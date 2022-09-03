@@ -5,7 +5,7 @@ name: SAC
 network_type: gru
 
 # log_return, simple_return, diff_sharpe_ratio, diff_sortino_ratio
-reward_type: diff_sharpe_ratio
+reward_type: log_return
 
 num_episodes: 100
 warmup_steps: 500
@@ -13,10 +13,10 @@ eval_steps: 1
 batch_size: 64
 tau: 0.005
 gamma: 0.99
-reward_scale: 100
+reward_scale: 1
 buffer_size: 10000
-lr_actor: 0.0003
-lr_critic: 0.0003
+lr_actor: 0.0001
+lr_critic: 0.001
 
 alpha_tuning: True
 alpha: 0.2 # use this if alpha_tuning is False

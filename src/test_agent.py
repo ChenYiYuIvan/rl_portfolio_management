@@ -5,7 +5,7 @@ from src.agents.sac_agent import SACAgent
 from src.agents.crp_agent import CRPAgent
 from src.agents.mpt_agent import MPTAgent
 from src.agents.random_agent import RandomAgent
-from src.utils.file_utils import read_yaml_config
+from src.utils.file_utils import read_yaml_config, get_checkpoint_folder
 
 
 def main():
@@ -18,11 +18,11 @@ def main():
 
     env = PortfolioEnd(env_config)
 
-    ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
-    ddpg.load_actor_model('./checkpoints/DDPG_gru_stocks16_batch64_window50/ddpg_ep99.pth')
+    ddpg = DDPGAgent('DDPG', env, seed, ddpg_config)
+    ddpg.load_actor_model(get_checkpoint_folder(ddpg, env) + '/ddpg_ep99.pth')
 
-    sac = SACAgent('sac', env, seed, sac_config)
-    sac.load_actor_model('./checkpoints/SAC_gru_diff_sharpe_ratio_stocks16_batch64_window50_scale100/sac_ep12.pth')
+    sac = SACAgent('SAC', env, seed, sac_config)
+    sac.load_actor_model(get_checkpoint_folder(sac, env) + '/sac_ep99.pth')
 
     crp = CRPAgent('crp', env, seed)
 

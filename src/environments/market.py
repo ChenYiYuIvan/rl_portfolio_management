@@ -1,5 +1,8 @@
-from src.utils import data_utils
+#from src.utils import data_utils
 from copy import deepcopy
+import numpy as np
+import yfinance as yf
+import datetime as dt
 
 class Market():
     
@@ -17,25 +20,35 @@ class Market():
         self.end_date = end_date
         self.window_length = window_length
 
-        self.date_list = data_utils.date_list
-        self.start_idx = self.date_list.index(self.start_date)
-        self.end_idx = self.date_list.index(self.end_date)
-
-        assert self.start_idx >= self.window_length - 1, "Invalid starting date: not enough preceding observations"
-        assert self.start_idx <= self.end_idx, "Starting date must be before ending date"
-        # assert self.end_idx < len(self.date_list), "Invalid ending date: no observations past 2018-02-07 in the dataset"
-
         self.stock_names = stock_names
 
-        # store only the required data
-        stock_idxs = [data_utils.stock_names.index(stock) for stock in self.stock_names]
-        stock_idxs = [0, *stock_idxs]
-        self.data = data_utils.hist_data[stock_idxs, self.start_idx - self.window_length + 1 : self.end_idx + 2, :]
+        # stocks data
+        _date_fmt = '%Y-%m-%d'
+        self.data = np.stack([
+            yf.download(stock,
+                start=(dt.datetime.strptime(self.start_date, _date_fmt) +
+                        dt.timedelta(1)).strftime(_date_fmt),
+                end=(dt.datetime.strptime(self.end_date, _date_fmt) + dt.timedelta(1)).strftime(_date_fmt)
+                ).drop(columns=['Adj Close']).to_numpy()
+            for stock in self.stock_names
+        ])
 
-        # S&P500 ETF values
-        self.snp = data_utils.snp[self.start_idx - self.window_length + 1 : self.end_idx + 1, :]
-        
+        # add cash data
+        _cash_data = np.ones((1, self.data.shape[1], self.data.shape[2]))
+        self.data = np.concatenate((_cash_data, self.data), axis=0)
+        self.stock_names = ['CASH', *self.stock_names]
+
+        # market data
+        self.snp = yf.download('SPY',
+                start=(dt.datetime.strptime(self.start_date, _date_fmt) +
+                        dt.timedelta(1)).strftime(_date_fmt),
+                end=(dt.datetime.strptime(self.end_date, _date_fmt) + dt.timedelta(1)).strftime(_date_fmt))
+
+        self.date_list = [str(time).split(' ')[0] for time in self.snp.index]
+        self.snp = self.snp.drop(columns=['Adj Close']).to_numpy()
+
         # set current step to 0
+        self.tot_steps = len(self.date_list) - self.window_length
         self.reset()
 
     def step(self):
@@ -44,7 +57,7 @@ class Market():
         next_obs = deepcopy(self.data[:, self.next_step + 1 : self.next_step + self.window_length + 1, :])
 
         self.next_step += 1
-        done = self.next_step >= self.end_idx - self.start_idx + 1  # if true, it means simulation has reached end date
+        done = self.next_step >= self.tot_steps  # if true, it means simulation has reached end date
 
         return curr_obs, next_obs, done
 
@@ -64,4 +77,4 @@ class Market():
         if step is None:
             step = self.next_step - 1
 
-        return self.date_list[step + self.start_idx]
+        return self.date_list[step + self.window_length - 1]

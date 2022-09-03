@@ -4,12 +4,11 @@ from torch.cuda import amp
 
 from src.agents.base_agent import BaseAgent
 
+from src.utils.file_utils import get_checkpoint_folder
 from src.utils.torch_utils import USE_CUDA
 from src.utils.data_utils import prices_to_logreturns, remove_not_used, rnn_transpose, cnn_transpose
 
 from src.models.replay_buffer import ReplayBuffer
-
-from empyrical import sharpe_ratio, sortino_ratio
 
 from tqdm import tqdm
 import wandb
@@ -57,13 +56,10 @@ class BaseACAgent(BaseAgent):
         self.set_networks_grad('target', False)
 
         # define checkpoint folder
-        self.checkpoint_folder = f'./checkpoints/{args.name}_{args.network_type}_{args.reward_type}_stocks{self.state_dim[0]}_batch{args.batch_size}_window{self.env.window_length}'
+        self.checkpoint_folder = get_checkpoint_folder(self, self.env)
 
         # initialization of parameters for differential sharpe ratio and differential downside deviation ratio
-        self.eta = 1e-3
-        self.A = 0
-        self.B = 1
-        self.DD = 1
+        self.initialize_differential()
 
 
     def define_actors_critics(self, args):
@@ -82,6 +78,13 @@ class BaseACAgent(BaseAgent):
         # networks = {'actor', 'critic', 'target'}
         # requires_grad = {True, False}
         raise NotImplementedError
+
+
+    def initialize_differential(self):
+        self.eta = 1e-3
+        self.A = 0
+        self.B = 1
+        self.DD = 1
 
 
     def compute_value_loss(self, s_batch, a_batch, r_batch, t_batch, s2_batch):
@@ -114,7 +117,7 @@ class BaseACAgent(BaseAgent):
         for episode in range(self.num_episodes):
 
             # logging
-            num_steps = self.env.market.end_idx - self.env.market.start_idx + 1
+            num_steps = self.env.market.tot_steps
             tq = tqdm(total=num_steps)
             tq.set_description('episode %d' % (episode))
 
@@ -127,6 +130,7 @@ class BaseACAgent(BaseAgent):
 
             # initialize values
             ep_reward_train = 0
+            self.initialize_differential()
 
             # keep sampling until done
             done = False

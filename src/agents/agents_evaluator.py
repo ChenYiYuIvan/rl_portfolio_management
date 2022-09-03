@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from src.utils.data_utils import date_list, snp, plot_stock_values
+from src.utils.data_utils import plot_stock_values
 from empyrical import simple_returns
 from empyrical import sharpe_ratio, sortino_ratio, max_drawdown, value_at_risk, conditional_value_at_risk
 
@@ -35,10 +35,7 @@ class AgentsEvaluator:
             fig2, ax2 = plt.subplots(num_rows, num_cols)
 
         if market: # also compare agents to market index
-            start_id = date_list.index(self.env.start_date)
-            end_id = date_list.index(self.env.end_date) + 1 # have to include day after last day
-            dates = date_list[start_id : end_id]
-            market_values = snp[start_id : end_id + 1, 3] # closing prices only
+            market_values = self.env.market.snp[:, 3] # closing prices only
             market_values = market_values / market_values[0] # starting value = 1
             market_returns = simple_returns(market_values) # prices -> returns
 
@@ -52,7 +49,7 @@ class AgentsEvaluator:
                                 })
 
             if plot_values:
-                df = {'date': dates, 'value': market_values[:-1]}
+                df = {'date': self.env.market.date_list, 'value': market_values}
                 df = pd.DataFrame(df)
                 df['date'] = pd.to_datetime(df['date'], format=date_format)
                 df.set_index('date', inplace=True)

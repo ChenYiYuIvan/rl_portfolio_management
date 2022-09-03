@@ -18,11 +18,10 @@ class Portfolio(gym.Env):
         # -> stock prices are the same as when the order was put
 
         self.continuous = config.continuous  # bool to use continuous market assumption
-        self.normalize = config.normalize  # divide price matrix by close price of time t
 
+        self.window_length = config.window_length
         self.start_date = config.start_date
         self.end_date = config.end_date
-        self.window_length = config.window_length
 
         self.init_port_value = config.init_portfolio_value
 

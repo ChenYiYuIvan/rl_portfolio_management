@@ -6,6 +6,7 @@ from torch.cuda import amp
 
 from src.agents.base_ac_agent import BaseACAgent
 
+from src.utils.file_utils import get_checkpoint_folder
 from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
 
 from src.models.gaussian_actor import GaussianActor
@@ -32,7 +33,9 @@ class SACAgent(BaseACAgent):
             self.alpha = args.alpha
 
         self.reward_scale = args.reward_scale
-        self.checkpoint_folder += f'_scale{self.reward_scale}'
+
+        # define checkpoint folder
+        self.checkpoint_folder = get_checkpoint_folder(self, self.env)
 
 
     def define_actors_critics(self, args):
@@ -122,7 +125,7 @@ class SACAgent(BaseACAgent):
         loss_q1 = mse_loss(q1_batch, target_q_batch)
         loss_q2 = mse_loss(q2_batch, target_q_batch)
 
-        critic_loss = loss_q1 + loss_q2
+        critic_loss = (loss_q1 + loss_q2) / 2
 
         return critic_loss
 

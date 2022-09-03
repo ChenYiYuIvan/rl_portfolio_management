@@ -1,10 +1,11 @@
 # default config for portfolio environment for testing
 
-start_date: "2016-04-20"
-end_date: "2018-02-06"
+start_date: "2019-01-01"
+end_date: "2020-12-31"
 window_length: 50
 stock_names:
   - AAPL
+  - AMZN
   - ATVI
   - CMCSA
   - COST
@@ -12,7 +13,6 @@ stock_names:
   - DISH
   - EA
   - EBAY
-  - FB
   - GOOGL
   - HAS
   - ILMN
@@ -23,4 +23,3 @@ stock_names:
 init_portfolio_value: 1
 trading_cost: 0.002
 continuous: false
-normalize: true
