@@ -8,10 +8,10 @@ from src.agents.base_ac_agent import BaseACAgent
 
 from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
 
-from src.models.actor import Actor
-from src.models.critic import Critic
+from src.models.cnn_models import DeterministicCNNActor, CNNCritic
 from src.models.lstm_models import DeterministicLSTMActor, LSTMCritic
 from src.models.gru_models import DeterministicGRUActor, GRUCritic
+from src.models.cnn_gru_models import DeterministicCNNGRUActor, CNNGRUCritic
 from src.models.noise import OrnsteinUhlenbeckActionNoise
 
 
@@ -27,15 +27,15 @@ class DDPGAgent(BaseACAgent):
     def define_actors_critics(self, args):
         
         num_price_features = self.state_dim[2]
-        window_length = self.state_dim[1]
+        window_length = self.state_dim[1] - 1 # because log returns instead of actual prices
         num_stocks = self.state_dim[0]
         
         if self.network_type == 'cnn':
-            self.actor = Actor(num_price_features, window_length)
-            self.actor_target = Actor(num_price_features, window_length)
+            self.actor = DeterministicCNNActor(num_price_features, num_stocks, window_length)
+            self.actor_target = DeterministicCNNActor(num_price_features, num_stocks, window_length)
             
-            self.critic = Critic(num_price_features, self.action_dim, window_length)
-            self.critic_target = Critic(num_price_features, self.action_dim, window_length)
+            self.critic = CNNCritic(num_price_features, num_stocks, window_length)
+            self.critic_target = CNNCritic(num_price_features, num_stocks, window_length)
             
         elif self.network_type == 'lstm':
             # add 1 to output_size for cash dimension
@@ -52,7 +52,14 @@ class DDPGAgent(BaseACAgent):
 
             self.critic = GRUCritic(num_price_features * num_stocks, self.action_dim)
             self.critic_target = GRUCritic(num_price_features * num_stocks, self.action_dim)
-            
+
+        elif self.network_type == 'cnn_gru':
+            self.actor = DeterministicCNNGRUActor(num_price_features, num_stocks)
+            self.actor_target = DeterministicCNNGRUActor(num_price_features, num_stocks)
+
+            self.critic = CNNGRUCritic(num_price_features, num_stocks)
+            self.critic_target = CNNGRUCritic(num_price_features, num_stocks)
+
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
         self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic, weight_decay=1e-2)
 

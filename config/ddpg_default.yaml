@@ -1,8 +1,8 @@
 # default config for ddpg
 name: DDPG
 
-# cnn or lstm or gru
-network_type: gru
+# cnn / lstm / gru / cnn_gru
+network_type: lstm
 
 # log_return, simple_return, diff_sharpe_ratio, diff_sortino_ratio
 reward_type: log_return
@@ -11,7 +11,7 @@ num_episodes: 100
 warmup_steps: 500
 eval_steps: 1
 batch_size: 64
-tau: 0.005
+tau: 0.001
 gamma: 0.99
 buffer_size: 10000
 lr_actor: 0.0001

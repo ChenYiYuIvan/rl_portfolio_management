@@ -43,6 +43,7 @@ def prices_to_logreturns(prices):
 
 def prices_to_simplereturns(prices):
     # shape: [num_stocks, window_length, price_features]
+    # output shape: [num_stocks, window_length-1, price_features]
 
     new = prices[:, 1:, :]
     old = prices[:, :-1, :]
@@ -92,4 +93,15 @@ def cnn_transpose(prices):
     # to [price_features, num_stocks, window_length]
 
     prices = np.transpose(prices, (2, 0, 1))
+    return prices
+
+
+def cnn_rnn_transpose(prices):
+    # use last, after all other transformations
+    # used to get correct shape for cnn based networks
+
+    # from [num_stocks, window_length, price_features]
+    # to [price_features, window_length, num_stocks]
+
+    prices = np.transpose(prices, (2, 1, 0))
     return prices

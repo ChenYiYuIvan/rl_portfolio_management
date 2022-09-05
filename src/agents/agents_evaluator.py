@@ -35,7 +35,7 @@ class AgentsEvaluator:
             fig2, ax2 = plt.subplots(num_rows, num_cols)
 
         if market: # also compare agents to market index
-            market_values = self.env.market.snp[:, 3] # closing prices only
+            market_values = self.env.market.snp[self.env.window_length-1:, 3] # closing prices only
             market_values = market_values / market_values[0] # starting value = 1
             market_returns = simple_returns(market_values) # prices -> returns
 
@@ -49,7 +49,7 @@ class AgentsEvaluator:
                                 })
 
             if plot_values:
-                df = {'date': self.env.market.date_list, 'value': market_values}
+                df = {'date': self.env.market.date_list[self.env.window_length-1:], 'value': market_values}
                 df = pd.DataFrame(df)
                 df['date'] = pd.to_datetime(df['date'], format=date_format)
                 df.set_index('date', inplace=True)

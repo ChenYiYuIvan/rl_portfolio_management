@@ -31,12 +31,10 @@ def get_opt_portfolio(state, objective, trans_coef):
     )
 
     if optim.success:
-        action = optim.x
+        return optim.x, None
     else:
         # print('Problem with MPT, keep portfolio unchanged')
-        action = weights
-
-    return action
+        return weights, optim.message
 
 
 def get_mean_portfolio_ret(mu, weights):

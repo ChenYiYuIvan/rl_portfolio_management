@@ -12,4 +12,8 @@ class MPTAgent(BaseAgent):
 
 
     def predict_action(self, obs, exploration=False):
-        return get_opt_portfolio(obs, self.objective, self.env.trading_cost)
+        action, message = get_opt_portfolio(obs, self.objective, self.env.trading_cost)
+        if message is not None:
+            print(self.env.market.step_to_date(), message, sep=' - ')
+
+        return action

@@ -17,7 +17,7 @@ def main(agent_name):
         config = {'env_train':vars(env_config_train), 'env_test':vars(env_config_test), 'agent': vars(agent_config)}
 
         wandb.login()
-        with wandb.init(project="thesis", entity="mldlproj1gr2", config=config, mode="online") as run:
+        with wandb.init(project="thesis", entity="mldlproj1gr2", config=config, mode="disabled") as run:
 
             env_train = PortfolioEnd(env_config_train)
             env_test = PortfolioEnd(env_config_test)
@@ -25,7 +25,7 @@ def main(agent_name):
             agent = DDPGAgent('ddpg', env_train, seed, agent_config)
 
             agent.train(run, env_test)
-            agent.eval(env_test, render=True)
+            #agent.eval(env_test, render=False)
 
     elif agent_name == 'sac':
         agent_config = read_yaml_config('sac_default')
@@ -40,10 +40,10 @@ def main(agent_name):
             agent = SACAgent('sac', env_train, seed, agent_config)
 
             agent.train(run, env_test)
-            agent.eval(env_test, render=False)
+            #agent.eval(env_test, render=False)
 
 
 if __name__ == '__main__':
 
     main('ddpg')
-    main('sac')
+    #main('sac')

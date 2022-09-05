@@ -6,7 +6,7 @@ from src.agents.base_agent import BaseAgent
 
 from src.utils.file_utils import get_checkpoint_folder
 from src.utils.torch_utils import USE_CUDA
-from src.utils.data_utils import prices_to_logreturns, remove_not_used, rnn_transpose, cnn_transpose
+from src.utils.data_utils import cnn_rnn_transpose, prices_to_logreturns, remove_not_used, rnn_transpose, cnn_transpose
 
 from src.models.replay_buffer import ReplayBuffer
 
@@ -21,7 +21,7 @@ class BaseACAgent(BaseAgent):
         super().__init__(name, env, seed)
         
         # network type
-        assert args.network_type in ('cnn', 'lstm', 'gru')
+        assert args.network_type in ('cnn', 'lstm', 'gru', 'cnn_gru')
         self.network_type = args.network_type
 
         # reward signal
@@ -102,7 +102,7 @@ class BaseACAgent(BaseAgent):
     def train(self, wandb_inst, env_test):
         # env_test: environment used to test agent during training (usually different from training environment)
         print("Begin train!")
-        wandb_inst.watch(self.actor)
+        wandb_inst.watch((self.actor, self.critic), log='all')
         artifact = wandb.Artifact(name=self.name, type='model')
 
         # creating directory to store models if it doesn't exist
@@ -152,7 +152,7 @@ class BaseACAgent(BaseAgent):
                 self.buffer.add(curr_obs, action, reward, done, next_obs)
 
                 # if replay buffer has enough observations
-                if self.buffer.size() >= self.batch_size:
+                if self.buffer.size() >= self.batch_size and step >= self.warmup_steps:
                     self.update(scaler, wandb_inst, step)
 
                 ep_reward_train += reward
@@ -188,7 +188,7 @@ class BaseACAgent(BaseAgent):
 
             # evaluate model every few episodes
             if episode % self.eval_steps == self.eval_steps - 1 or episode == 0:
-                ep_reward_val, infos_eval, ep_port_value_val = self.eval(env_test, render=False)
+                ep_reward_val, infos_eval, ep_port_value_val = self.eval(env_test)
                 print(f"Eval - Episode final portfolio value: {ep_port_value_val} | Episode total reward: {ep_reward_val}")
                 wandb_inst.log({'ep_reward_eval': ep_reward_val,
                                 'ep_port_value_eval': ep_port_value_val}, step=step)
@@ -208,6 +208,7 @@ class BaseACAgent(BaseAgent):
 
     def eval(self, env, exploration=False, render=False):
         self.set_eval()
+        self.initialize_differential()
         return super().eval(env, exploration=exploration, render=render)
 
 
@@ -223,6 +224,8 @@ class BaseACAgent(BaseAgent):
             prices = cnn_transpose(prices)
         elif self.network_type == 'lstm' or self.network_type == 'gru':
             prices = rnn_transpose(prices)
+        elif self.network_type == 'cnn_gru':
+            prices = cnn_rnn_transpose(prices)
 
         return (prices, weights)
 
