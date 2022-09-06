@@ -102,7 +102,7 @@ class BaseACAgent(BaseAgent):
     def train(self, wandb_inst, env_test):
         # env_test: environment used to test agent during training (usually different from training environment)
         print("Begin train!")
-        wandb_inst.watch((self.actor, self.critic), log='all')
+        wandb_inst.watch((self.actor, self.critic), log='all', log_freq=100)
         artifact = wandb.Artifact(name=self.name, type='model')
 
         # creating directory to store models if it doesn't exist

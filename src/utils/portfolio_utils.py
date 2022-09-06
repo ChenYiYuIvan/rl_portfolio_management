@@ -4,7 +4,7 @@ import scipy.optimize as spo
 from src.utils.data_utils import EPS, remove_not_used, prices_to_simplereturns
 
 
-def get_opt_portfolio(state, objective, trans_coef):
+def get_opt_portfolio(state, objective, trans_coef, to_logret=True):
     # get optimal portfolio weights given current portfolio and past stock prices
     # according to Modern Portfolio Theory
     
@@ -15,7 +15,9 @@ def get_opt_portfolio(state, objective, trans_coef):
     # obs = price matrix, weights = current portfolio weights
     obs, weights = state
     obs = remove_not_used(obs, cash=False, high=True, low=True)
-    rets = prices_to_simplereturns(obs).squeeze()
+    if to_logret:
+        obs = prices_to_simplereturns(obs)
+    obs = obs.squeeze()
     # obs shape: [num stocks, window length]
 
     bounds = [(0,None) for _ in range(obs.shape[0])]
@@ -24,7 +26,7 @@ def get_opt_portfolio(state, objective, trans_coef):
         'fun': lambda weights: np.sum(weights) - 1
     }
 
-    optim = spo.minimize(objective_func, weights, (weights, rets, trans_coef),
+    optim = spo.minimize(objective_func, weights, (weights, obs, trans_coef),
         bounds=bounds,
         constraints=constraints,
         method='SLSQP'

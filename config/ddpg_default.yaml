@@ -2,13 +2,13 @@
 name: DDPG
 
 # cnn / lstm / gru / cnn_gru
-network_type: lstm
+network_type: cnn
 
 # log_return, simple_return, diff_sharpe_ratio, diff_sortino_ratio
 reward_type: log_return
 
 num_episodes: 100
-warmup_steps: 500
+warmup_steps: 1000
 eval_steps: 1
 batch_size: 64
 tau: 0.001
