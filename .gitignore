@@ -3,6 +3,7 @@ wandb/
 artifacts/
 checkpoints/
 .vscode/
+data/
 
 
 # Byte-compiled / optimized / DLL files

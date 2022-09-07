@@ -1,3 +1,4 @@
+from copy import deepcopy
 import numpy as np
 import torch
 from torch.cuda import amp
@@ -9,6 +10,8 @@ from src.utils.torch_utils import USE_CUDA
 from src.utils.data_utils import cnn_rnn_transpose, prices_to_logreturns, remove_not_used, rnn_transpose, cnn_transpose
 
 from src.models.replay_buffer import ReplayBuffer
+
+from src.utils.portfolio_utils import get_opt_portfolio
 
 from tqdm import tqdm
 import wandb
@@ -47,6 +50,11 @@ class BaseACAgent(BaseAgent):
         # define replay buffer
         self.buffer = ReplayBuffer(args.buffer_size)
 
+        # active imitation learning
+        self.active_il = args.active_il
+        if self.active_il:
+            self.env_copy = deepcopy(self.env)
+
         # cpu or gpu
         self.device = torch.device("cuda:0" if USE_CUDA else "cpu")
         if USE_CUDA:
@@ -56,6 +64,7 @@ class BaseACAgent(BaseAgent):
         self.set_networks_grad('target', False)
 
         # define checkpoint folder
+        self.pre = args.pre
         self.checkpoint_folder = get_checkpoint_folder(self, self.env)
 
         # initialization of parameters for differential sharpe ratio and differential downside deviation ratio
@@ -125,8 +134,10 @@ class BaseACAgent(BaseAgent):
             self.set_train()
 
             # initial state of environment
-            curr_obs = self.env.reset()
-            curr_obs = self.preprocess_data(curr_obs)
+            curr_obs_original = self.env.reset()
+            curr_obs = self.preprocess_data(curr_obs_original)
+            if self.active_il:
+                self.env_copy.reset()
 
             # initialize values
             ep_reward_train = 0
@@ -144,12 +155,30 @@ class BaseACAgent(BaseAgent):
                     action = self.random_action()
 
                 # step forward environment
-                next_obs, done, info_action = self.env.step(action)
+                next_obs_original, done, info_action = self.env.step(action)
                 reward = self.get_reward(info_action)
-                next_obs = self.preprocess_data(next_obs)
+                next_obs = self.preprocess_data(next_obs_original)
 
                 # add to buffer
                 self.buffer.add(curr_obs, action, reward, done, next_obs)
+
+                # imitation learning
+                if self.active_il and self.buffer.size() >= self.batch_size and step >= self.warmup_steps:
+                    # MPT action
+                    action_copy, _ = get_opt_portfolio(curr_obs_original, 'sharpe_ratio', self.env_copy.trading_cost)
+                    
+                    next_obs_copy_original, done_copy, info_action_copy = self.env_copy.step(action)
+                    reward_copy = self.get_reward(info_action_copy)
+                    next_obs_copy = self.preprocess_data(next_obs_copy_original)
+
+                    self.buffer.add(curr_obs, action_copy, reward_copy, done_copy, next_obs_copy)
+
+                    # copy values from original env
+                    curr_obs_original = next_obs_original
+                    self.env_copy.copy_env(self.env)
+
+                    _, val = curr_obs_original
+                    assert np.array_equal(val, self.env_copy.weights), 'Error in copying envs'
 
                 # if replay buffer has enough observations
                 if self.buffer.size() >= self.batch_size and step >= self.warmup_steps:

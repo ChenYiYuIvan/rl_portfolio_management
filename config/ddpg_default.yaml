@@ -1,6 +1,11 @@
 # default config for ddpg
 name: DDPG
 
+# True if include subprime mortgage crisis -> Train on 2007-01-01 - 2016-12-31
+# False if not -> Train on 2010-01-01 - 2018-12-31
+# For both -> Test on 201X-01-01 - 2020-12-31 (X=7 or 9)
+pre: True
+
 # cnn / lstm / gru / cnn_gru
 network_type: cnn
 
@@ -13,6 +18,8 @@ eval_steps: 1
 batch_size: 64
 tau: 0.001
 gamma: 0.99
-buffer_size: 10000
+buffer_size: 100000
 lr_actor: 0.0001
 lr_critic: 0.001
+
+active_il: True

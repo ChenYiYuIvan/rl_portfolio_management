@@ -21,3 +21,5 @@ lr_critic: 0.001
 alpha_tuning: True
 alpha: 0.2 # use this if alpha_tuning is False
 lr_alpha: 0.0003 # use this if alpha_tuning is True
+
+active_il: True

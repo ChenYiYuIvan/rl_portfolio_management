@@ -20,9 +20,14 @@ def read_yaml_config(file_name):
 
 
 def get_checkpoint_folder(agent, env):
-    folder = f'./checkpoints/{agent.name}_{agent.network_type}_{agent.reward_type}_stocks{env.observation_space.shape[0]}_batch{agent.batch_size}_window{env.window_length}'
+    folder = './checkpoints/'
+    if agent.pre:
+        folder += 'pre_'
+    folder += f'{agent.name}_{agent.network_type}_{agent.reward_type}_stocks{env.observation_space.shape[0]}_batch{agent.batch_size}_window{env.window_length}'
     if hasattr(agent, 'reward_scale'):
         folder += f'_scale{agent.reward_scale}'
+    if agent.active_il:
+        folder += '_ail'
 
     return folder
     

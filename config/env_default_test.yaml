@@ -1,6 +1,6 @@
 # default config for portfolio environment for testing
 
-start_date: "2019-01-01"
+start_date: "2017-01-01"
 end_date: "2020-12-31"
 window_length: 50
 stock_names:

@@ -129,3 +129,11 @@ class PortfolioEnd(Portfolio):
         curr_state = (curr_obs, self.weights)
 
         return curr_state
+
+
+    def copy_env(self, env2):
+        # copy portfolio values from env2
+        self.infos = env2.infos
+        self.simple_ret_vec = env2.simple_ret_vec
+        self.weights = env2.weights
+        self.port_value = env2.port_value
