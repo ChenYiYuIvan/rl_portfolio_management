@@ -13,25 +13,36 @@ def main():
     seed = 42
 
     env_config = read_yaml_config('env_default_test')
-    ddpg_config = read_yaml_config('ddpg_default')
-    sac_config = read_yaml_config('sac_default')
-
     env = PortfolioEnd(env_config)
 
-    ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
-    #ddpg.load_actor_model(get_checkpoint_folder(ddpg, env) + '/ddpg_ep16.pth')
+    agents_list = []
 
+    ddpg_config = read_yaml_config('ddpg_default')
+    ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
+    ddpg.load_actor_model(get_checkpoint_folder(ddpg, env) + '/ddpg_ep10.pth')
+    agents_list.append(ddpg)
+
+    ddpg_config2 = read_yaml_config('ddpg_no_trans')
+    ddpg2 = DDPGAgent('ddpg', env, seed, ddpg_config2)
+    ddpg2.load_actor_model(get_checkpoint_folder(ddpg2, env) + '/ddpg_no_trans_ep20.pth')
+    agents_list.append(ddpg2)
+
+    #sac_config = read_yaml_config('sac_default')
     #sac = SACAgent('SAC', env, seed, sac_config)
     #sac.load_actor_model(get_checkpoint_folder(sac, env) + '/sac_ep2.pth')
+    #agents_list.append(sac)
 
-    crp = CRPAgent('crp', env, seed)
+    #crp = CRPAgent('crp', env, seed)
+    #agents_list.append(crp)
 
-    mpt = MPTAgent('mpt', env, seed, 'sharpe_ratio')
+    #mpt = MPTAgent('mpt', env, seed, 'sharpe_ratio')
+    #agents_list.append(mpt)
 
     #rng = RandomAgent('rng', env, seed)
+    #agents_list.append(rng)
 
-    evaluator = AgentsEvaluator(env, [ddpg, crp, mpt])
-    evaluator.evaluate_all(num_cols=4, exploration=False, plot_stocks=True)
+    evaluator = AgentsEvaluator(env, agents_list)
+    evaluator.evaluate_all(num_cols=4, exploration=False, plot_stocks=True, plot_log=False)
 
 
 if __name__ == '__main__':

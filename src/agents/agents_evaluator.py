@@ -34,36 +34,6 @@ class AgentsEvaluator:
             num_rows = int(np.ceil(len(stock_names) / num_cols))
             fig2, ax2 = plt.subplots(num_rows, num_cols, squeeze=False)
 
-        if market:  # also compare agents to market index
-            # closing prices only
-            market_values = self.env.market.snp[self.env.window_length-1:, 3]
-            market_values = market_values / \
-                market_values[0]  # starting value = 1
-            market_log_rets = np.log(
-                market_values[1:] + EPS) - np.log(market_values[:-1] + EPS)
-            market_returns = simple_returns(market_values)  # prices -> returns
-
-            # market statistics
-            agent_metrics.append({
-                'agent': 'market',
-                'final_value': market_values[-1],
-                'mean_log_rets': np.mean(market_log_rets),
-                'sharpe_ratio': sharpe_ratio(market_returns, annualization=len(market_returns)),
-                'sortino_ratio': sortino_ratio(market_returns, annualization=len(market_returns)),
-                'max_drawdown': max_drawdown(market_returns),
-                'var_95': value_at_risk(market_returns),
-                'cvar_95': conditional_value_at_risk(market_returns)
-            })
-
-            if plot_values:
-                df = {
-                    'date': self.env.market.date_list[self.env.window_length-1:], 'value': market_values}
-                df = pd.DataFrame(df)
-                df['date'] = pd.to_datetime(df['date'], format=date_format)
-                df.set_index('date', inplace=True)
-                df.plot(ax=ax1, rot=30)
-                agent_names.insert(0, 'market')
-
         for agent in self.agents_list:  # current agent to plot
             reward, infos, end_port_value = agent.eval(
                 self.env, exploration=exploration)
@@ -102,6 +72,37 @@ class AgentsEvaluator:
                     df2.plot(ax=ax2[row, col], title=stock_name,
                              rot=30, legend=False)
 
+        if market:  # also compare agents to market index
+            agent_names.append('market')
+            
+            # closing prices only
+            market_values = self.env.market.snp[self.env.window_length-1:, 3]
+            market_values = market_values / \
+                market_values[0]  # starting value = 1
+            market_log_rets = np.log(
+                market_values[1:] + EPS) - np.log(market_values[:-1] + EPS)
+            market_returns = simple_returns(market_values)  # prices -> returns
+
+            # market statistics
+            agent_metrics.append({
+                'agent': 'market',
+                'final_value': market_values[-1],
+                'mean_log_rets': np.mean(market_log_rets),
+                'sharpe_ratio': sharpe_ratio(market_returns, annualization=len(market_returns)),
+                'sortino_ratio': sortino_ratio(market_returns, annualization=len(market_returns)),
+                'max_drawdown': max_drawdown(market_returns),
+                'var_95': value_at_risk(market_returns),
+                'cvar_95': conditional_value_at_risk(market_returns)
+            })
+
+            if plot_values:
+                df = {
+                    'date': self.env.market.date_list[self.env.window_length-1:], 'value': market_values}
+                df = pd.DataFrame(df)
+                df['date'] = pd.to_datetime(df['date'], format=date_format)
+                df.set_index('date', inplace=True)
+                df.plot(ax=ax1, rot=30)
+
         # print portfolio metrics
         agent_metrics = pd.DataFrame(agent_metrics)
         agent_metrics.set_index('agent', inplace=True)
@@ -112,7 +113,7 @@ class AgentsEvaluator:
 
         if plot_weights:  # plot agents' action for each stock
             if market:
-                fig2.legend(agent_names[1:])
+                fig2.legend(agent_names[:-1])
             else:
                 fig2.legend(agent_names)
 

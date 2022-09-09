@@ -21,15 +21,14 @@ import os
 class BaseACAgent(BaseAgent):
 
     def __init__(self, name, env, seed, args):
-        super().__init__(name, env, seed)
+        super().__init__(name, env, seed, args.reward_type)
+
+        # agent name from config
+        self.name = args.name
         
         # network type
         assert args.network_type in ('cnn', 'lstm', 'gru', 'cnn_gru')
         self.network_type = args.network_type
-
-        # reward signal
-        assert args.reward_type in ('log_return', 'simple_return', 'diff_sharpe_ratio', 'diff_sortino_ratio')
-        self.reward_type = args.reward_type
 
         # hyper-parameters
         self.num_episodes = args.num_episodes
@@ -67,9 +66,6 @@ class BaseACAgent(BaseAgent):
         self.pre = args.pre
         self.checkpoint_folder = get_checkpoint_folder(self, self.env)
 
-        # initialization of parameters for differential sharpe ratio and differential downside deviation ratio
-        self.initialize_differential()
-
 
     def define_actors_critics(self, args):
         raise NotImplementedError
@@ -87,13 +83,6 @@ class BaseACAgent(BaseAgent):
         # networks = {'actor', 'critic', 'target'}
         # requires_grad = {True, False}
         raise NotImplementedError
-
-
-    def initialize_differential(self):
-        self.eta = 1e-3
-        self.A = 0
-        self.B = 1
-        self.DD = 1
 
 
     def compute_value_loss(self, s_batch, a_batch, r_batch, t_batch, s2_batch):
@@ -134,6 +123,7 @@ class BaseACAgent(BaseAgent):
             self.set_train()
 
             # initial state of environment
+            self.reset()
             curr_obs_original = self.env.reset()
             curr_obs = self.preprocess_data(curr_obs_original)
             if self.active_il:
@@ -141,7 +131,6 @@ class BaseACAgent(BaseAgent):
 
             # initialize values
             ep_reward_train = 0
-            self.initialize_differential()
 
             # keep sampling until done
             done = False
@@ -237,7 +226,6 @@ class BaseACAgent(BaseAgent):
 
     def eval(self, env, exploration=False, render=False):
         self.set_eval()
-        self.initialize_differential()
         return super().eval(env, exploration=exploration, render=render)
 
 
@@ -257,33 +245,6 @@ class BaseACAgent(BaseAgent):
             prices = cnn_rnn_transpose(prices)
 
         return (prices, weights)
-
-
-    def get_reward(self, info):
-        if self.reward_type in ('log_return, simple_return'):
-            return super().get_reward(info)
-        elif self.reward_type == 'diff_sharpe_ratio':
-            deltaA = info['simple_return'] - self.A
-            deltaB = info['simple_return']**2 - self.B
-            reward = (self.B * deltaA - self.A * deltaB / 2) / (self.B - self.A**2)**(3/2)
-
-            self.A = self.A + self.eta * deltaA
-            self.B = self.B + self.eta * deltaB
-
-        elif self.reward_type == 'diff_sortino_ratio':
-            # also called differential downside deviation ratio
-            if info['simple_return'] > 0:
-                num = info['simple_return'] - self.A / 2
-                denom = self.DD
-            else:
-                num = self.DD**2 * (info['simple_return'] - self.A / 2) - self.A * info['simple_return']**2 / 2
-                denom = self.DD**3
-            reward = num / denom
-
-            self.A = self.A + self.eta * (info['simple_return'] - self.A)
-            self.DD = np.sqrt(self.DD**2 + self.eta * (np.minimum(info['simple_return'], 0)**2 - self.DD**2))
-
-        return reward
 
 
     def load_actor_model(self, path):

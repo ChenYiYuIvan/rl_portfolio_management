@@ -5,8 +5,8 @@ from src.utils.portfolio_utils import get_opt_portfolio
 
 class MPTAgent(BaseAgent):
 
-    def __init__(self, name, env, seed, objective):
-        super().__init__(name, env, seed)
+    def __init__(self, name, env, seed, reward_type, objective):
+        super().__init__(name, env, seed, reward_type)
 
         self.objective = objective
 

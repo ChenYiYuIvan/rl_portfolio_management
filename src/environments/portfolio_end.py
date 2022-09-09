@@ -70,8 +70,8 @@ class PortfolioEnd(Portfolio):
             curr_sortino_ratio = 0
         else:
             self.simple_ret_vec = np.append(self.simple_ret_vec, simple_return)
-            curr_sharpe_ratio = sharpe_ratio(self.simple_ret_vec, annualization=len(self.simple_ret_vec))
-            curr_sortino_ratio = sortino_ratio(self.simple_ret_vec, annualization=len(self.simple_ret_vec))
+            curr_sharpe_ratio = sharpe_ratio(self.simple_ret_vec, annualization=1)
+            curr_sortino_ratio = sortino_ratio(self.simple_ret_vec, annualization=1)
         
         action_info = {
             'time_period': self.market.next_step - 1,
