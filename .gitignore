@@ -2,8 +2,10 @@
 wandb/
 artifacts/
 checkpoints/
+checkpoints_pretrained/
 .vscode/
 data/
+*.pth
 
 
 # Byte-compiled / optimized / DLL files

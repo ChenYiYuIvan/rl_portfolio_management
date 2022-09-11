@@ -11,9 +11,9 @@ class MPTAgent(BaseAgent):
         self.objective = objective
 
 
-    def predict_action(self, obs, exploration=False):
+    def predict_action(self, obs, exploration=False, verbose=True):
         action, message = get_opt_portfolio(obs, self.objective, self.env.trading_cost)
-        if message is not None:
+        if message is not None and verbose:
             print(self.env.market.step_to_date(), message, sep=' - ')
 
         return action

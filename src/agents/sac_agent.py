@@ -32,8 +32,6 @@ class SACAgent(BaseACAgent):
         else: # fixed temperature
             self.alpha = args.alpha
 
-        self.reward_scale = args.reward_scale
-
         # define checkpoint folder
         self.checkpoint_folder = get_checkpoint_folder(self, self.env)
 
@@ -156,9 +154,6 @@ class SACAgent(BaseACAgent):
 
         # sample batch
         s_batch, a_batch, r_batch, t_batch, s2_batch = self.buffer.sample_batch(self.batch_size)
-
-        # reward scaling
-        r_batch = self.reward_scale * r_batch
 
         # set gradients to 0
         self.critic_optim.zero_grad()

@@ -27,8 +27,11 @@ class DDPGAgent(BaseACAgent):
     def define_actors_critics(self, args):
         
         num_price_features = self.state_dim[2]
-        window_length = self.state_dim[1] - 1 # because log returns instead of actual prices
+        window_length = self.state_dim[1]
         num_stocks = self.state_dim[0]
+
+        if self.preprocess == 'log_return':
+            window_length -= 1 # because log returns instead of actual prices
         
         if self.network_type == 'cnn':
             self.actor = DeterministicCNNActor(num_price_features, num_stocks, window_length)

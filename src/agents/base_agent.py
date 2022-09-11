@@ -106,11 +106,14 @@ class BaseAgent:
             self.A = self.A + self.eta * (simple_ret - self.A)
             self.DD = np.sqrt(self.DD**2 + self.eta * (np.minimum(simple_ret, 0)**2 - self.DD**2))
 
+        if hasattr(self, 'reward_scale'):
+            reward *= self.reward_scale
+
         return reward
 
 
     def reset(self):
-        self.eta = 1e-6
+        self.eta = 1e-5
         self.A = 0
         self.B = 0
         self.DD = 1

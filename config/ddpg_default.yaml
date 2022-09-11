@@ -12,14 +12,18 @@ network_type: cnn
 # log_return, simple_return, diff_sharpe_ratio, diff_sortino_ratio
 reward_type: diff_sharpe_ratio
 
+# log_return, divide_close
+preprocess: divide_close
+
 num_episodes: 100
 warmup_steps: 1000
 eval_steps: 1
 batch_size: 64
 tau: 0.001
 gamma: 0.99
+reward_scale: 0.0001
 buffer_size: 100000
 lr_actor: 0.0001
 lr_critic: 0.001
 
-active_il: True
+active_il: False

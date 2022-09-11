@@ -24,7 +24,11 @@ def get_checkpoint_folder(agent, env):
     if agent.pre:
         folder += 'pre_'
     folder += f'{agent.name}_{agent.network_type}_{agent.reward_type}_stocks{env.observation_space.shape[0]}_batch{agent.batch_size}_window{env.window_length}'
+    if agent.preprocess == 'divide_close':
+        folder += '_close'
     if hasattr(agent, 'reward_scale'):
+        scale = str(agent.reward_scale)
+        scale = scale.replace('.', '_')
         folder += f'_scale{agent.reward_scale}'
     if agent.active_il:
         folder += '_ail'

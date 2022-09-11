@@ -7,7 +7,7 @@ from src.agents.base_agent import BaseAgent
 
 from src.utils.file_utils import get_checkpoint_folder
 from src.utils.torch_utils import USE_CUDA
-from src.utils.data_utils import cnn_rnn_transpose, prices_to_logreturns, remove_not_used, rnn_transpose, cnn_transpose
+from src.utils.data_utils import cnn_rnn_transpose, prices_to_logreturns, prices_to_norm, remove_not_used, rnn_transpose, cnn_transpose
 
 from src.models.replay_buffer import ReplayBuffer
 
@@ -30,12 +30,15 @@ class BaseACAgent(BaseAgent):
         assert args.network_type in ('cnn', 'lstm', 'gru', 'cnn_gru')
         self.network_type = args.network_type
 
+        self.preprocess = args.preprocess
+
         # hyper-parameters
         self.num_episodes = args.num_episodes
         self.warmup_steps = args.warmup_steps
         self.batch_size = args.batch_size
         self.tau = args.tau # for polyak averaging
         self.gamma = args.gamma # for bellman equation
+        self.reward_scale = args.reward_scale
 
         # evaluate model every few episodes
         self.eval_steps = args.eval_steps
@@ -235,8 +238,13 @@ class BaseACAgent(BaseAgent):
 
     def preprocess_data(self, obs):
         prices, weights = obs
+        if self.preprocess == 'log_return':
+            prices = prices_to_logreturns(prices)
+        elif self.preprocess == 'divide_close':
+            prices = prices_to_norm(prices)
+
         prices = remove_not_used(prices)
-        prices = prices_to_logreturns(prices)
+
         if self.network_type == 'cnn':
             prices = cnn_transpose(prices)
         elif self.network_type == 'lstm' or self.network_type == 'gru':

@@ -45,8 +45,8 @@ def plot_stocks_info(env, num_cols=4, print_metrics=True, plot_log=True):
             'stock': name,
             'final_value': stock_values[-1] / stock_values[0], # assuming initial value = 1
             'mean_log_rets': np.mean(log_rets),
-            'sharpe_ratio': sharpe_ratio(stock_rets, annualization=len(stock_rets)),
-            'sortino_ratio': sortino_ratio(stock_rets, annualization=len(stock_rets)),
+            'sharpe_ratio': sharpe_ratio(stock_rets, annualization=1),
+            'sortino_ratio': sortino_ratio(stock_rets, annualization=1),
             'max_drawdown': max_drawdown(stock_rets),
             'var_95': value_at_risk(stock_rets),
             'cvar_95': conditional_value_at_risk(stock_rets),
@@ -70,6 +70,17 @@ def prices_to_logreturns(prices):
 
     return log_rets
 
+
+def prices_to_norm(prices):
+    # divide all entries by the closing price of each asset of current day
+
+    closing = prices[:, -1, 3]
+    closing = closing[:,None,None]
+
+    norm = np.divide(prices, closing)
+
+    return norm
+    
 
 def prices_to_simplereturns(prices):
     # shape: [num_stocks, window_length, price_features]
