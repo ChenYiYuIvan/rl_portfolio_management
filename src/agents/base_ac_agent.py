@@ -154,7 +154,7 @@ class BaseACAgent(BaseAgent):
                 # add to buffer
                 self.buffer.add(curr_obs, action, reward, done, next_obs)
 
-                # imitation learning
+                # active imitation learning
                 if self.active_il and self.buffer.size() >= self.batch_size and step >= self.warmup_steps:
                     # MPT action
                     action_copy, _ = get_opt_portfolio(curr_obs_original, 'sharpe_ratio', self.env_copy.trading_cost)

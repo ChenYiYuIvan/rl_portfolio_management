@@ -30,7 +30,6 @@ class PreTrainer:
 
         if self.network_type == 'cnn':
             self.actor = DeterministicCNNActor(args.num_price_features, args.num_stocks, window_length)
-            self.critic = CNNCritic(args.num_price_features, args.num_stocks, window_length)
         
         self.X_obs_train = np.load(f'{data_path}/X_obs_train.npy')
         self.X_weight_train = np.load(f'{data_path}/X_weight_train.npy')
@@ -39,6 +38,8 @@ class PreTrainer:
         self.X_obs_test = np.load(f'{data_path}/X_obs_test.npy')
         self.X_weight_test = np.load(f'{data_path}/X_weight_test.npy')
         self.y_test = np.load(f'{data_path}/y_test.npy')
+
+        self.eval_steps = args.eval_steps
 
         self.num_stocks = args.num_stocks
 
@@ -122,6 +123,7 @@ class PreTrainer:
                 
                 self.agent_train.reset()
                 obs, weight = self.agent_train.env.reset()
+                #weight = self.agent_train.random_action()
 
                 done = False
                 while not done:
@@ -149,10 +151,16 @@ class PreTrainer:
 
                     # step forward environment
                     if USE_CUDA:
+                        y_pred = y_pred.detach().cpu().numpy()
                         y_true = y_true.detach().cpu().numpy()
                     else:
+                        y_pred = y_pred.detach().numpy()
                         y_true = y_true.detach().numpy()
-                    (obs, weight), done, _ = self.agent_train.env.step(y_true)
+
+                    action = (y_pred + y_true) / 2
+                    #action = self.add_action_noise(y_pred)
+                    (obs, weight), done, _ = self.agent_train.env.step(action)
+                    #weight = self.agent_train.random_action()
 
             tq.close()
 
@@ -167,16 +175,17 @@ class PreTrainer:
             torch.save(self.actor.state_dict(), self.folder + actor_name)
             artifact.add_file(self.folder + actor_name, name=actor_name)
 
-            loss_eval_mean = self.eval()
-            print(f'Eval - Mean loss = {loss_eval_mean}')
-            wandb_inst.log({"loss_epoch_eval": loss_eval_mean}, step=step)
-            if loss_eval_mean < best_loss_eval:
-                wandb_inst.summary['best_loss_eval'] = loss_eval_mean
-                best_loss_eval = loss_eval_mean
+            if epoch % self.eval_steps == self.eval_steps - 1 or epoch == 0:
+                loss_eval_mean = self.eval()
+                print(f'Eval - Mean loss = {loss_eval_mean}')
+                wandb_inst.log({"loss_epoch_eval": loss_eval_mean}, step=step)
+                if loss_eval_mean < best_loss_eval:
+                    wandb_inst.summary['best_loss_eval'] = loss_eval_mean
+                    best_loss_eval = loss_eval_mean
 
         wandb_inst.log_artifact(artifact)
             
-    def eval(self, render=False, num_cols=5):
+    def eval(self, render=False, num_cols=4):
         self.actor.eval()
 
         loss_eval_vec = []
@@ -231,7 +240,7 @@ class PreTrainer:
                 y_pred_vec.append(y_pred)
 
                 # step forward environment
-                (obs, weight), done, _ = self.agent_test.env.step(y_true)
+                (obs, weight), done, _ = self.agent_test.env.step(y_pred)
 
         loss_eval_mean = np.mean(loss_eval_vec)
 
@@ -283,6 +292,15 @@ class PreTrainer:
 
         return rets, weights_old, weights_new
 
+    def add_action_noise(self, action, range=0.1):
+        # apply uniform noise to action
+        noise = np.random.uniform(-range/2, range/2, action.shape)
+        action += noise
+        action = np.clip(action, 0, 1)
+        action /= action.sum()
+
+        return action
+
     def load_actor_model(self, path):
         self.actor.load_state_dict(torch.load(path))
 
@@ -297,6 +315,7 @@ if __name__ == '__main__':
 
     args = {
         'seed': 42,
+        'eval_steps': 5,
         'network_type': 'cnn',
         'num_price_features': 3,
         'num_stocks': 16,
@@ -306,18 +325,18 @@ if __name__ == '__main__':
     }
     
     wandb.login()
-    with wandb.init(project="pretraining", entity="mldlproj1gr2", config=args, mode="disabled") as run:
+    with wandb.init(project="pretraining", entity="mldlproj1gr2", config=args, mode="online") as run:
         config = wandb.config
 
         env_config_train = read_yaml_config('env_default_train')
-        env_config_eval = read_yaml_config('env_default_test')
+        env_config_test = read_yaml_config('env_default_test')
 
         env_train = PortfolioEnd(env_config_train)
-        env_test = PortfolioEnd(env_config_train)
+        env_test = PortfolioEnd(env_config_test)
 
         pretrainer = PreTrainer(config, env_train, env_test)
         pretrainer.train(run)
 
         #pretrainer.load_actor_model('./checkpoints_pretrained/cnn_synthetic/synthetic_epoch99.pth')
-        #pretrainer.load_actor_model('./src/pretrainer/models/real_epoch24.pth')
+        #pretrainer.load_actor_model('./checkpoints_pretrained/cnn_real/real_epoch99.pth')
         #pretrainer.eval(True)

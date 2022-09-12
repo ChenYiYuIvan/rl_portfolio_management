@@ -88,8 +88,8 @@ class AgentsEvaluator:
                 'agent': 'market',
                 'final_value': market_values[-1],
                 'mean_log_rets': np.mean(market_log_rets),
-                'sharpe_ratio': sharpe_ratio(market_returns, annualization=len(market_returns)),
-                'sortino_ratio': sortino_ratio(market_returns, annualization=len(market_returns)),
+                'sharpe_ratio': sharpe_ratio(market_returns, annualization=1),
+                'sortino_ratio': sortino_ratio(market_returns, annualization=1),
                 'max_drawdown': max_drawdown(market_returns),
                 'var_95': value_at_risk(market_returns),
                 'cvar_95': conditional_value_at_risk(market_returns)

@@ -1,0 +1,16 @@
+# default config for portfolio environment for training
+
+start_date: "2007-01-01"
+end_date: "2016-12-31"
+window_length: 50
+stock_names:
+  - AAPL
+  - ATVI
+  - COST
+  - DISH
+  - EBAY
+  - HAS
+  - INTC
+init_portfolio_value: 1
+trading_cost: 0.002
+continuous: false

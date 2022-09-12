@@ -13,7 +13,7 @@ network_type: cnn
 reward_type: diff_sharpe_ratio
 
 # log_return, divide_close
-preprocess: divide_close
+preprocess: log_return
 
 num_episodes: 100
 warmup_steps: 1000
