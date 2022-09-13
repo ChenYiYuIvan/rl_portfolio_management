@@ -33,7 +33,7 @@ def get_checkpoint_folder(agent, env, pretrained=False):
         scale = str(agent.reward_scale)
         scale = scale.replace('.', '_')
         folder += f'_scale{agent.reward_scale}'
-    if agent.active_il:
+    if agent.imitation_learning == 'active':
         folder += '_ail'
 
     return folder

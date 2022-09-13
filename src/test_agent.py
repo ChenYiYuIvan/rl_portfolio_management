@@ -12,8 +12,8 @@ def main():
 
     seed = 42
 
-    env_config = read_yaml_config('env_small_train')
-    #env_config = read_yaml_config('env_small_test')
+    env_config = read_yaml_config('env_default_train')
+    #env_config = read_yaml_config('env_default_test')
     env = PortfolioEnd(env_config)
 
     agents_list = []
@@ -21,7 +21,7 @@ def main():
     ddpg_config = read_yaml_config('ddpg_default')
     ddpg = DDPGAgent('exact', env, seed, ddpg_config)
     #ddpg.load_actor_model('./checkpoints_pretrained/cnn_real_7_49_noise/real_epoch59.pth')
-    ddpg.load_actor_model(get_checkpoint_folder(ddpg, env, True) + '/ddpg_ep0.pth')
+    ddpg.load_actor_model(get_checkpoint_folder(ddpg, env, False) + '/ddpg_ep45.pth')
     agents_list.append(ddpg)
 
     #sac_config = read_yaml_config('sac_default')
@@ -32,8 +32,8 @@ def main():
     #crp = CRPAgent('crp', env, seed, 'diff_sharpe_ratio')
     #agents_list.append(crp)
 
-    mpt = MPTAgent('mpt', env, seed, 'diff_sharpe_ratio', 'sharpe_ratio')
-    agents_list.append(mpt)
+    #mpt = MPTAgent('mpt', env, seed, 'diff_sharpe_ratio', 'sharpe_ratio')
+    #agents_list.append(mpt)
 
     #rng = RandomAgent('rng', env, seed, 'diff_sharpe_ratio')
     #agents_list.append(rng)

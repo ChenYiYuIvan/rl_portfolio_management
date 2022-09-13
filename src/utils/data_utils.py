@@ -37,7 +37,7 @@ def plot_stocks_info(env, num_cols=4, print_metrics=True, plot_log=True):
         df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
         df.set_index('date', inplace=True)
 
-        df.plot(ax=axarr[row, col], title=name, rot=30, legend=False)
+        df.plot(ax=axarr[row, col], title=name, rot=30, legend=False, grid=True)
 
         # stock metrics
         stock_rets = simple_returns(stock_values)

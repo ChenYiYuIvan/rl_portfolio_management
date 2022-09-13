@@ -10,7 +10,7 @@ pre: True
 network_type: cnn
 
 # log_return, simple_return, diff_sharpe_ratio, diff_sortino_ratio
-reward_type: diff_sharpe_ratio
+reward_type: log_return
 
 # log_return, divide_close
 preprocess: log_return

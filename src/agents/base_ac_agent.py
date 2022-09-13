@@ -52,9 +52,9 @@ class BaseACAgent(BaseAgent):
         # define replay buffer
         self.buffer = ReplayBuffer(args.buffer_size)
 
-        # active imitation learning
-        self.active_il = args.active_il
-        if self.active_il:
+        # imitation learning
+        self.imitation_learning = args.imitation_learning
+        if self.imitation_learning == 'active':
             self.env_copy = deepcopy(self.env)
 
         # cpu or gpu
@@ -109,6 +109,7 @@ class BaseACAgent(BaseAgent):
         print("Begin train!")
 
         if pretrained_path is not None:
+            assert self.imitation_learning == 'passive', 'Using passive imitation learning but didn\'t provide path for pretrained model'
             self.load_pretrained(pretrained_path)
             self.checkpoint_folder = self.checkpoint_folder.replace('checkpoints', 'checkpoints_trained')
 
@@ -122,6 +123,7 @@ class BaseACAgent(BaseAgent):
         scaler = amp.GradScaler()
 
         step = 0
+        max_ep_reward_val_train = -np.inf
         max_ep_reward_val = -np.inf
         # loop over episodes
         for episode in range(self.num_episodes):
@@ -138,7 +140,7 @@ class BaseACAgent(BaseAgent):
             self.reset()
             curr_obs_original = self.env.reset()
             curr_obs = self.preprocess_data(curr_obs_original)
-            if self.active_il:
+            if self.imitation_learning == 'active':
                 self.env_copy.reset()
 
             # initialize values
@@ -164,7 +166,7 @@ class BaseACAgent(BaseAgent):
                 self.buffer.add(curr_obs, action, reward, done, next_obs)
 
                 # active imitation learning
-                if self.active_il and self.buffer.size() >= self.batch_size and step >= self.warmup_steps:
+                if self.imitation_learning == 'active' and self.buffer.size() >= self.batch_size and step >= self.warmup_steps:
                     # MPT action
                     action_copy, _ = get_opt_portfolio(curr_obs_original, 'sharpe_ratio', self.env_copy.trading_cost)
                     
@@ -218,6 +220,18 @@ class BaseACAgent(BaseAgent):
 
             # evaluate model every few episodes
             if episode % self.eval_steps == self.eval_steps - 1 or episode == 0:
+                
+                # evaluate on training data
+                ep_reward_val_train, infos_eval_train, ep_port_value_val_train = self.eval(self.env)
+                print(f"Eval on train - Episode final portfolio value: {ep_port_value_val_train} | Episode total reward: {ep_reward_val_train}")
+                wandb_inst.log({'ep_reward_eval_train': ep_reward_val_train,
+                                'ep_port_value_eval_train': ep_port_value_val_train}, step=step)
+
+                if ep_reward_val_train > max_ep_reward_val_train:
+                    max_ep_reward_val_train = ep_reward_val_train
+                    wandb_inst.summary['max_ep_reward_val_train'] = max_ep_reward_val_train
+
+                # evaluate on test data
                 ep_reward_val, infos_eval, ep_port_value_val = self.eval(env_test)
                 print(f"Eval - Episode final portfolio value: {ep_port_value_val} | Episode total reward: {ep_reward_val}")
                 wandb_inst.log({'ep_reward_eval': ep_reward_val,

@@ -56,12 +56,12 @@ class AgentsEvaluator:
                 df = df[['date', 'port_value_old']]
                 df['date'] = pd.to_datetime(df['date'], format=date_format)
                 df.set_index('date', inplace=True)
-                df.plot(ax=ax1, rot=30)
+                df.plot(ax=ax1, rot=30, grid=True)
 
             if plot_weights:
-                for stock_id in range(len(stock_names)):
-                    row = int(stock_id / num_cols)  # current row in figure
-                    col = stock_id % num_cols  # current col in figure
+                for stock_id in range(1,len(stock_names)):
+                    row = int((stock_id-1) / num_cols)  # current row in figure
+                    col = (stock_id-1) % num_cols  # current col in figure
                     stock_name = stock_names[stock_id]  # current stock to plot
                     info_stock = [
                         {'date': item['date'], agent.name: item['action'][stock_id]} for item in infos]
@@ -70,7 +70,20 @@ class AgentsEvaluator:
                         df2['date'], format=date_format)
                     df2.set_index('date', inplace=True)
                     df2.plot(ax=ax2[row, col], title=stock_name,
-                             rot=30, legend=False)
+                             rot=30, legend=False, grid=True, ylim=[0,1])
+                # plot CASH as last
+                col += 1
+                if col >= num_cols:
+                    col = 0
+                    row += 1
+                info_stock = [
+                    {'date': item['date'], agent.name: item['action'][0]} for item in infos]
+                df2 = pd.DataFrame(info_stock)
+                df2['date'] = pd.to_datetime(
+                    df2['date'], format=date_format)
+                df2.set_index('date', inplace=True)
+                df2.plot(ax=ax2[row, col], title=stock_names[0],
+                            rot=30, legend=False, grid=True, ylim=[0,1])
 
         if market:  # also compare agents to market index
             agent_names.append('market')
@@ -101,7 +114,7 @@ class AgentsEvaluator:
                 df = pd.DataFrame(df)
                 df['date'] = pd.to_datetime(df['date'], format=date_format)
                 df.set_index('date', inplace=True)
-                df.plot(ax=ax1, rot=30)
+                df.plot(ax=ax1, rot=30, grid=True)
 
         # print portfolio metrics
         agent_metrics = pd.DataFrame(agent_metrics)
