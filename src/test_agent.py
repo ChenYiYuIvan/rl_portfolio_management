@@ -12,32 +12,17 @@ def main():
 
     seed = 42
 
-    #env_config = read_yaml_config('env_default_train')
-    env_config = read_yaml_config('env_default_test')
+    env_config = read_yaml_config('env_small_train')
+    #env_config = read_yaml_config('env_small_test')
     env = PortfolioEnd(env_config)
 
     agents_list = []
 
     ddpg_config = read_yaml_config('ddpg_default')
     ddpg = DDPGAgent('exact', env, seed, ddpg_config)
-    ddpg.load_actor_model('../aaaa - exact/real_epoch15.pth')
-    #ddpg.load_actor_model(get_checkpoint_folder(ddpg, env) + '/ddpg_ep4.pth')
+    #ddpg.load_actor_model('./checkpoints_pretrained/cnn_real_7_49_noise/real_epoch59.pth')
+    ddpg.load_actor_model(get_checkpoint_folder(ddpg, env, True) + '/ddpg_ep0.pth')
     agents_list.append(ddpg)
-
-    ddpg_config2 = read_yaml_config('ddpg_default')
-    ddpg2 = DDPGAgent('pred', env, seed, ddpg_config2)
-    ddpg2.load_actor_model('../bbbb - pred/real_epoch40.pth')
-    agents_list.append(ddpg2)
-
-    ddpg_config3 = read_yaml_config('ddpg_default')
-    ddpg3 = DDPGAgent('rand', env, seed, ddpg_config3)
-    ddpg3.load_actor_model('../cccc - rand/real_epoch40.pth')
-    agents_list.append(ddpg3)
-
-    ddpg_config4 = read_yaml_config('ddpg_default')
-    ddpg4 = DDPGAgent('rand', env, seed, ddpg_config4)
-    ddpg4.load_actor_model('./checkpoints_pretrained/cnn_real/real_epoch7.pth')
-    agents_list.append(ddpg4)
 
     #sac_config = read_yaml_config('sac_default')
     #sac = SACAgent('SAC', env, seed, sac_config)

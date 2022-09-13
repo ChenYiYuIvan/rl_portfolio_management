@@ -1,12 +1,11 @@
 # Others
 wandb/
 artifacts/
-checkpoints/
-checkpoints_pretrained/
+checkpoints*
 .vscode/
 data/
 *.pth
-
+*.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

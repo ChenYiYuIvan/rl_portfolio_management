@@ -77,19 +77,19 @@ class DDPGAgent(BaseACAgent):
         update_params(self.critic_target, self.critic, self.tau)
 
 
-    def set_networks_grad(self, networks, requires_grad):
+    def set_networks_grad(self, networks, requires_grad, pretrained=False):
         # networks = {'actor', 'critic', 'target'}
         # requires_grad = {True, False}
         assert networks in ('actor', 'critic', 'target')
         assert requires_grad in (True, False)
 
         if networks == 'actor':
-            self.actor.requires_grad(requires_grad)
+            self.actor.requires_grad(requires_grad, pretrained)
         elif networks == 'critic':
-            self.critic.requires_grad(requires_grad)
+            self.critic.requires_grad(requires_grad, pretrained)
         elif networks == 'target':
-            self.actor_target.requires_grad(requires_grad)
-            self.critic_target.requires_grad(requires_grad)
+            self.actor_target.requires_grad(requires_grad, pretrained)
+            self.critic_target.requires_grad(requires_grad, pretrained)
 
 
     def compute_value_loss(self, s_batch, a_batch, r_batch, t_batch, s2_batch):
@@ -113,7 +113,9 @@ class DDPGAgent(BaseACAgent):
         return policy_loss
 
 
-    def update(self, scaler, wandb_inst, step):
+    def update(self, scaler, wandb_inst, step, pretrained_path=None):
+
+        pretrained = pretrained_path is not None
 
         # sample batch
         s_batch, a_batch, r_batch, t_batch, s2_batch = self.buffer.sample_batch(self.batch_size)
@@ -122,7 +124,7 @@ class DDPGAgent(BaseACAgent):
         self.critic_optim.zero_grad()
         self.actor_optim.zero_grad()
 
-        self.set_networks_grad('actor', False)
+        self.set_networks_grad('actor', False, pretrained)
 
         # compute loss for critic
         with amp.autocast():
@@ -132,8 +134,8 @@ class DDPGAgent(BaseACAgent):
         scaler.scale(value_loss).backward()
         scaler.step(self.critic_optim)
 
-        self.set_networks_grad('actor', True)
-        self.set_networks_grad('critic', False)
+        self.set_networks_grad('actor', True, pretrained)
+        self.set_networks_grad('critic', False, pretrained)
 
         # compute loss for actor
         with amp.autocast():
@@ -146,7 +148,7 @@ class DDPGAgent(BaseACAgent):
         # update
         scaler.update()
 
-        self.set_networks_grad('critic', True)
+        self.set_networks_grad('critic', True, pretrained)
 
         # update target netweoks
         self.update_target_params()
@@ -175,6 +177,48 @@ class DDPGAgent(BaseACAgent):
             action /= action.sum()
 
         return action
+
+
+    def load_pretrained(self, path):
+        # initialize common part of actors and critics to values obtained through pretraining
+        num_price_features = self.state_dim[2]
+        window_length = self.state_dim[1]
+        num_stocks = self.state_dim[0]
+        if self.preprocess == 'log_return':
+            window_length -= 1 # because log returns instead of actual prices
+
+        if self.network_type == 'cnn':
+            pretrained = DeterministicCNNActor(num_price_features, num_stocks, window_length)
+            
+        pretrained.load_state_dict(torch.load(path))
+        pretrained_state_dict = pretrained.state_dict()
+        # keep only common part
+        pretrained_state_dict = {k: v for k, v in pretrained_state_dict.items() if k.startswith('common')}
+        
+        # load to actor
+        actor_state_dict = self.actor.state_dict()
+        actor_state_dict.update(pretrained_state_dict)
+        self.actor.load_state_dict(actor_state_dict)
+
+        # load to critic
+        critic_state_dict = self.critic.state_dict()
+        critic_state_dict.update(pretrained_state_dict)
+        self.critic.load_state_dict(critic_state_dict)
+
+        # copy to target
+        self.copy_params_to_target()
+
+        # freeze pretrained params
+        for name, param in self.actor.named_parameters():
+            if name.startswith('common'):
+                param.requires_grad = False
+
+        for name, param in self.critic.named_parameters():
+            if name.startswith('common'):
+                param.requires_grad = False
+
+        # freeze target again just to be sure
+        self.set_networks_grad('target', False)
 
 
     def set_train(self):

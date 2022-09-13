@@ -24,6 +24,7 @@ class PreTrainer:
         if args.log_return:
             window_length -= 1
 
+        # path for synthetic data
         data_path = f'./data/synthetic_data/data{args.num_stocks}_{args.window_length}'
 
         self.network_type = args.network_type
@@ -31,13 +32,15 @@ class PreTrainer:
         if self.network_type == 'cnn':
             self.actor = DeterministicCNNActor(args.num_price_features, args.num_stocks, window_length)
         
-        self.X_obs_train = np.load(f'{data_path}/X_obs_train.npy')
-        self.X_weight_train = np.load(f'{data_path}/X_weight_train.npy')
-        self.y_train = np.load(f'{data_path}/y_train.npy')
+        if env_train is None:
+            self.X_obs_train = np.load(f'{data_path}/X_obs_train.npy')
+            self.X_weight_train = np.load(f'{data_path}/X_weight_train.npy')
+            self.y_train = np.load(f'{data_path}/y_train.npy')
 
-        self.X_obs_test = np.load(f'{data_path}/X_obs_test.npy')
-        self.X_weight_test = np.load(f'{data_path}/X_weight_test.npy')
-        self.y_test = np.load(f'{data_path}/y_test.npy')
+        if env_test is None:
+            self.X_obs_test = np.load(f'{data_path}/X_obs_test.npy')
+            self.X_weight_test = np.load(f'{data_path}/X_weight_test.npy')
+            self.y_test = np.load(f'{data_path}/y_test.npy')
 
         self.eval_steps = args.eval_steps
 
@@ -53,6 +56,8 @@ class PreTrainer:
         self.lr = 1e-3
         self.num_epochs = 100
 
+        self.noise = args.noise
+
         self.actor_optim = Adam(self.actor.parameters(), lr=self.lr)
         self.loss = nn.MSELoss()
 
@@ -66,9 +71,11 @@ class PreTrainer:
         # folder
         self.folder = './checkpoints_pretrained/'
         if env_train is None:
-            self.folder += f'{self.network_type}_synthetic/'
+            self.folder += f'{self.network_type}_synthetic_{self.num_stocks}_{window_length}/'
         else:
-            self.folder += f'{self.network_type}_real/'
+            self.folder += f'{self.network_type}_real_{self.num_stocks}_{window_length}'
+            if self.noise:
+                self.folder += '_noise/'
         if not os.path.isdir(self.folder):
             os.makedirs(self.folder)
 
@@ -157,8 +164,10 @@ class PreTrainer:
                         y_pred = y_pred.detach().numpy()
                         y_true = y_true.detach().numpy()
 
-                    action = (y_pred + y_true) / 2
-                    #action = self.add_action_noise(y_pred)
+                    #action = (y_pred + y_true) / 2
+                    action = y_pred
+                    if self.noise:
+                        action = self.add_action_noise(action)
                     (obs, weight), done, _ = self.agent_train.env.step(action)
                     #weight = self.agent_train.random_action()
 
@@ -318,18 +327,19 @@ if __name__ == '__main__':
         'eval_steps': 5,
         'network_type': 'cnn',
         'num_price_features': 3,
-        'num_stocks': 16,
+        'num_stocks': 7,
         'window_length': 50,
         'log_return': True,
         'lr': 1e-3,
+        'noise': False,
     }
     
     wandb.login()
     with wandb.init(project="pretraining", entity="mldlproj1gr2", config=args, mode="online") as run:
         config = wandb.config
 
-        env_config_train = read_yaml_config('env_default_train')
-        env_config_test = read_yaml_config('env_default_test')
+        env_config_train = read_yaml_config('env_small_train')
+        env_config_test = read_yaml_config('env_small_test')
 
         env_train = PortfolioEnd(env_config_train)
         env_test = PortfolioEnd(env_config_test)

@@ -81,8 +81,12 @@ class BaseACAgent(BaseAgent):
     def update_target_params(self):
         raise NotImplementedError
 
+    
+    def load_pretrained(self, path):
+        raise NotImplementedError
 
-    def set_networks_grad(self, networks, requires_grad):
+
+    def set_networks_grad(self, networks, requires_grad, pretrained=False):
         # networks = {'actor', 'critic', 'target'}
         # requires_grad = {True, False}
         raise NotImplementedError
@@ -96,13 +100,18 @@ class BaseACAgent(BaseAgent):
         raise NotImplementedError
 
 
-    def update(self, scaler, wandb_inst, step):
+    def update(self, scaler, wandb_inst, step, pretrained_path=None):
         raise NotImplementedError
 
 
-    def train(self, wandb_inst, env_test):
+    def train(self, wandb_inst, env_test, pretrained_path=None):
         # env_test: environment used to test agent during training (usually different from training environment)
         print("Begin train!")
+
+        if pretrained_path is not None:
+            self.load_pretrained(pretrained_path)
+            self.checkpoint_folder = self.checkpoint_folder.replace('checkpoints', 'checkpoints_trained')
+
         wandb_inst.watch((self.actor, self.critic), log='all', log_freq=100)
         artifact = wandb.Artifact(name=self.name, type='model')
 
@@ -174,7 +183,7 @@ class BaseACAgent(BaseAgent):
 
                 # if replay buffer has enough observations
                 if self.buffer.size() >= self.batch_size and step >= self.warmup_steps:
-                    self.update(scaler, wandb_inst, step)
+                    self.update(scaler, wandb_inst, step, pretrained_path)
 
                 ep_reward_train += reward
                 curr_obs = next_obs

@@ -79,8 +79,11 @@ class DeterministicCNNActor(nn.Module):
 
         return x.squeeze()
 
-    def requires_grad(self, req):
-        for param in self.parameters():
+    def requires_grad(self, req, pretrained):
+        for name, param in self.named_parameters():
+            # if I have to unfreeze and network was pretraiend, keep common part frozen
+            if req and pretrained and name.startswith('common'):
+                continue
             param.requires_grad = req
 
     def init_weights(self):
@@ -106,8 +109,11 @@ class CNNCritic(nn.Module):
 
         return x
 
-    def requires_grad(self, req):
-        for param in self.parameters():
+    def requires_grad(self, req, pretrained):
+        for name, param in self.named_parameters():
+            # if I have to unfreeze and network was pretraiend, keep common part frozen
+            if req and pretrained and name.startswith('common'):
+                continue
             param.requires_grad = req
 
     def init_weights(self):
