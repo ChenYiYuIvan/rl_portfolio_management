@@ -1,6 +1,6 @@
 import wandb
 from src.utils.file_utils import read_yaml_config
-from src.environments.portfolio_end import PortfolioEnd
+from src.environments.portfolio import Portfolio
 from src.agents.ddpg_agent import DDPGAgent
 from src.agents.sac_agent import SACAgent
 
@@ -13,14 +13,14 @@ def main(agent_name):
     env_config_test = read_yaml_config('env_default_test')
 
     if agent_name == 'ddpg':
-        agent_config = read_yaml_config('ddpg_default')
+        agent_config = read_yaml_config('ddpg_1')
         config = {'env_train':vars(env_config_train), 'env_test':vars(env_config_test), 'agent': vars(agent_config)}
 
         wandb.login()
         with wandb.init(project="thesis", entity="mldlproj1gr2", config=config, mode="online") as run:
 
-            env_train = PortfolioEnd(env_config_train)
-            env_test = PortfolioEnd(env_config_test)
+            env_train = Portfolio(env_config_train)
+            env_test = Portfolio(env_config_test)
 
             agent = DDPGAgent('ddpg', env_train, seed, agent_config)
 
@@ -35,8 +35,8 @@ def main(agent_name):
         wandb.login()
         with wandb.init(project="thesis", entity="mldlproj1gr2", config=config, mode="online") as run:
 
-            env_train = PortfolioEnd(env_config_train)
-            env_test = PortfolioEnd(env_config_test)
+            env_train = Portfolio(env_config_train)
+            env_test = Portfolio(env_config_test)
 
             agent = SACAgent('sac', env_train, seed, agent_config)
 

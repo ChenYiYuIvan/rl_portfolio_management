@@ -1,11 +1,14 @@
 from src.agents.agents_evaluator import AgentsEvaluator
-from src.environments.portfolio_end import PortfolioEnd
+from src.environments.portfolio import Portfolio
 from src.agents.ddpg_agent import DDPGAgent
 from src.agents.sac_agent import SACAgent
 from src.agents.crp_agent import CRPAgent
 from src.agents.mpt_agent import MPTAgent
 from src.agents.random_agent import RandomAgent
 from src.utils.file_utils import read_yaml_config, get_checkpoint_folder
+
+import pandas as pd
+pd.options.display.float_format = '{:,.6f}'.format
 
 
 def main():
@@ -14,14 +17,14 @@ def main():
 
     env_config = read_yaml_config('env_default_train')
     #env_config = read_yaml_config('env_default_test')
-    env = PortfolioEnd(env_config)
+    env = Portfolio(env_config)
 
     agents_list = []
 
-    ddpg_config = read_yaml_config('ddpg_default')
-    ddpg = DDPGAgent('exact', env, seed, ddpg_config)
+    ddpg_config = read_yaml_config('ddpg_1')
+    ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
     #ddpg.load_actor_model('./checkpoints_pretrained/cnn_real_7_49_noise/real_epoch59.pth')
-    ddpg.load_actor_model(get_checkpoint_folder(ddpg, env, False) + '/ddpg_ep45.pth')
+    ddpg.load_actor_model(get_checkpoint_folder(ddpg, env, False) + '/ddpg_ep1.pth')
     agents_list.append(ddpg)
 
     #sac_config = read_yaml_config('sac_default')
@@ -39,7 +42,7 @@ def main():
     #agents_list.append(rng)
 
     evaluator = AgentsEvaluator(env, agents_list)
-    evaluator.evaluate_all(num_cols=4, exploration=False, plot_stocks=True, plot_log=False)
+    evaluator.evaluate_all(num_cols=4, exploration=False, plot_stocks=True, plot_log=True)
 
 
 if __name__ == '__main__':

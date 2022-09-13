@@ -1,4 +1,4 @@
-from src.environments.portfolio_end import PortfolioEnd
+from src.environments.portfolio import Portfolio
 from src.utils.portfolio_utils import get_approx_trans_cost
 from src.utils.file_utils import read_yaml_config
 from src.agents.random_agent import RandomAgent
@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 
 env_config = read_yaml_config('env_default_train')
-env = PortfolioEnd(env_config)
+env = Portfolio(env_config)
 
 agent = RandomAgent('rng', env, 42, 'log_return')
 

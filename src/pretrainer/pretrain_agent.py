@@ -1,5 +1,5 @@
 import numpy as np
-from src.models.cnn_models import DeterministicCNNActor, CNNCritic
+from src.models.cnn_models import DeterministicCNNActor
 from torch.optim import Adam
 import torch.nn as nn
 from tqdm import tqdm
@@ -13,7 +13,7 @@ from src.agents.mpt_agent import MPTAgent
 import matplotlib.pyplot as plt
 import pandas as pd
 from src.utils.file_utils import read_yaml_config
-from src.environments.portfolio_end import PortfolioEnd
+from src.environments.portfolio import Portfolio
 
 
 class PreTrainer:
@@ -75,7 +75,7 @@ class PreTrainer:
         else:
             self.folder += f'{self.network_type}_real_{self.num_stocks}_{window_length}'
             if self.noise:
-                self.folder += '_noise/'
+                self.folder += '_noise'
         if not os.path.isdir(self.folder):
             os.makedirs(self.folder)
 
@@ -181,8 +181,9 @@ class PreTrainer:
                 best_loss_train = loss_train_mean
 
             # save model
-            torch.save(self.actor.state_dict(), self.folder + actor_name)
-            artifact.add_file(self.folder + actor_name, name=actor_name)
+            actor_path_name = os.path.join(self.folder, actor_name)
+            torch.save(self.actor.state_dict(), actor_path_name)
+            artifact.add_file(actor_path_name, name=actor_name)
 
             if epoch % self.eval_steps == self.eval_steps - 1 or epoch == 0:
                 loss_eval_mean = self.eval()
@@ -341,12 +342,11 @@ if __name__ == '__main__':
         env_config_train = read_yaml_config('env_small_train')
         env_config_test = read_yaml_config('env_small_test')
 
-        env_train = PortfolioEnd(env_config_train)
-        env_test = PortfolioEnd(env_config_test)
+        env_train = Portfolio(env_config_train)
+        env_test = Portfolio(env_config_test)
 
         pretrainer = PreTrainer(config, env_train, env_test)
         pretrainer.train(run)
 
-        #pretrainer.load_actor_model('./checkpoints_pretrained/cnn_synthetic/synthetic_epoch99.pth')
-        #pretrainer.load_actor_model('./checkpoints_pretrained/cnn_real/real_epoch99.pth')
+        #pretrainer.load_actor_model('./checkpoints_pretrained/cnn_real_7_49_noise/real_epoch69.pth')
         #pretrainer.eval(True)

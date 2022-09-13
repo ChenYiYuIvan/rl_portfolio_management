@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 from src.environments.market import Market
-from empyrical import sharpe_ratio, max_drawdown
+from empyrical import sharpe_ratio, sortino_ratio, max_drawdown, value_at_risk, conditional_value_at_risk
 import pandas as pd
 import matplotlib.pyplot as plt
 from src.utils.data_utils import EPS
@@ -38,11 +38,20 @@ class Portfolio(gym.Env):
 
         # observation space = past values of asset prices
         # open, high, low, close, volume -> 5 values
+        # remove open and volume -> 3 values
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf,
-                                                shape=(len(self.stock_names), self.window_length, 5), dtype=np.float32)
+                                                shape=(len(self.stock_names), self.window_length, 3), dtype=np.float32)
+
+        # Portfolio environment in which everything is done at end of day
+        # -> state s_t == weights and value of portfolio at end of day t before rebalance
+        # -> action a_t == rebalanced portfolio
+        # -> state s_{t+1} = f(s_t, a_t)
+
+        # 1: price at end of day t before rebalancing
+        # 2: rebalancing at end of day t
+        # 3: price at end of day t+1 before rebalancing
 
         self.reset()
-
 
     def step(self, action):
         # execute 1 time step within the environment
@@ -50,80 +59,75 @@ class Portfolio(gym.Env):
 
         # observe open/.../close price of stocks
         curr_obs, next_obs, done = self.market.step()
+        # obs shape: [stocks, time window, price features]
 
-        reward, reward_info = self._take_action(curr_obs, action, next_obs)
+        action_info = self._take_action(curr_obs, action, next_obs)
 
-        return next_obs, reward, done, reward_info
+        next_state = (next_obs, self.weights)
 
+        return next_state, done, action_info
 
     def _take_action(self, curr_obs, action, next_obs):
 
-        # observe open, low, high, close, volume data of day t
-        close_price = curr_obs[:, -1, 3]
-        open_price = curr_obs[:, -1, 0]
-        relative_price = close_price / open_price
-
-        # 1: start of day t (due to decision taken at end of day t-1)
+        # 1
         weights1 = self.weights
         port_value1 = self.port_value
 
-        # 2: end of day t - just before rebalancing (due to diff between close and open)
-        weights2 = (relative_price * weights1) / np.dot(relative_price, weights1)
-        port_value2 = port_value1 * np.dot(relative_price, weights1)
-
-        # 3: end of day t - just after rebalancing (due to action taken)
-        # weights3 = softmax(action)  # new portfolio weights (sum = 1)
-        weights3 = action
-        remaining_value = self._get_remaining_value(weights2, weights3)
+        # 2
+        weights2 = action
+        remaining_value = self._get_remaining_value(weights1, weights2)
         if remaining_value < 0 or remaining_value > 1:
             print(remaining_value)
             raise ValueError
-        port_value3 = remaining_value * port_value2
+        port_value2 = remaining_value * port_value1
 
-        if not self.continuous:
-            # 4: start of day t+1 (due to diff between next open and close)
-            next_open = next_obs[:, -1, 0]
-            relative_price2 = next_open / close_price
-            weights4 = (relative_price2 * weights3) / np.dot(relative_price2, weights3)
-            port_value4 = port_value3 * np.dot(relative_price2, weights3)
+        # 3
+        curr_close = curr_obs[:, -1, 3]
+        next_close = next_obs[:, -1, 3]
+        relative_price = next_close / curr_close
+        weights3 = (relative_price * weights2) / (np.dot(relative_price, weights2) + EPS)
+        port_value3 = port_value2 * np.dot(relative_price, weights2)
 
-            weights_end = weights4
-            port_value_end = port_value4
+        # possible reward signals
+        log_return = np.log((port_value3 + EPS) / (port_value1 + EPS))
+        simple_return = port_value3 / port_value1 - 1
 
+        if len(self.simple_ret_vec) == 0:
+            self.simple_ret_vec = np.array([simple_return])
+            curr_sharpe_ratio = 0
+            curr_sortino_ratio = 0
         else:
-            # price at end of day t == price at start of day t+1
-            weights_end = weights3
-            port_value_end = port_value3
-
-        # reward
-        log_return = np.log(port_value_end / port_value1)
-        simple_return = port_value_end / port_value1 - 1
-
-        reward = log_return
-
-        reward_info = {
+            self.simple_ret_vec = np.append(self.simple_ret_vec, simple_return)
+            curr_sharpe_ratio = sharpe_ratio(self.simple_ret_vec, annualization=1)
+            curr_sortino_ratio = sortino_ratio(self.simple_ret_vec, annualization=1)
+        
+        action_info = {
             'time_period': self.market.next_step - 1,
             'date': self.market.step_to_date(),
             'curr_obs': curr_obs,
             'next_obs': next_obs,
             'action': action,
             'weights_old': weights1,
-            'weights_new': weights_end,
+            'weights_new': weights3,
             'cost': 1 - remaining_value,
             'port_value_old': port_value1,
-            'port_value_new': port_value_end,
+            'port_value_new': port_value3,
             'log_return': log_return,
             'simple_return': simple_return,
-            'reward': reward,
+            'sharpe_ratio': curr_sharpe_ratio,
+            'sortino_ratio': curr_sortino_ratio,
+            'max_drawdown': max_drawdown(self.simple_ret_vec),
+            'var_95': value_at_risk(self.simple_ret_vec),
+            'cvar_95': conditional_value_at_risk(self.simple_ret_vec),
             's&p500': self.market.snp[self.market.next_step - 1, 3] / self.market.snp[0, 3] * self.init_port_value,
         }
 
         # update values
-        self.weights = weights_end
-        self.port_value = port_value_end
-        self.infos.append(reward_info)
+        self.weights = weights3
+        self.port_value = port_value3
+        self.infos.append(action_info)
 
-        return reward, reward_info
+        return action_info
 
     def _get_remaining_value(self, weights_old, weights_new, iters=10):
         # initial value
@@ -146,20 +150,33 @@ class Portfolio(gym.Env):
         
         return remaining_value
 
-
     def reset(self):
         # reset environment to initial state
 
         self.infos = []
+        self.simple_ret_vec = [] # vector of simple returns
 
         # assume that starting portfolio is all cash
         self.weights = np.array([1] + [0 for _ in range(len(self.stock_names))])
         self.port_value = self.init_port_value  # initial value of portfolio
 
+        # open, low, high, close, volume data of day 0
+        # curr_obs shape: [stocks, time window, price features]
         curr_obs = self.market.reset()
 
-        return curr_obs
+        # initialize values needed for differential sharpe ratio (A_t and B_t)
+        # A_t = first moment of returns
+        # B_t = second momento of returns
+        # initial portfolio is all cash 
+        
 
+
+        # end of day -> nothing has changed because only cash
+
+        # s_t = (X_t, w_{t-1}^{end}})
+        curr_state = (curr_obs, self.weights)
+
+        return curr_state
 
     def render(self, mode='human', close=False):
         # plot value of portfolio and compare with value of market (~ S&P500 ETF)
@@ -176,3 +193,10 @@ class Portfolio(gym.Env):
 
         df[['market', 'portfolio']].plot(title=title, rot=30)
         plt.show()
+
+    def copy_env(self, env2):
+        # copy portfolio values from env2
+        self.infos = env2.infos
+        self.simple_ret_vec = env2.simple_ret_vec
+        self.weights = env2.weights
+        self.port_value = env2.port_value

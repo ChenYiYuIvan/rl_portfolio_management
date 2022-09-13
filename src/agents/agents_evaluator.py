@@ -24,6 +24,8 @@ class AgentsEvaluator:
         date_format = '%Y-%m-%d'
 
         agent_metrics = []
+        agent_weights = []
+
         # for value plot legend
         agent_names = [agent.name for agent in self.agents_list]
 
@@ -51,6 +53,11 @@ class AgentsEvaluator:
                 'cvar_95': info['cvar_95'],
             })
 
+            weights = {'agent': agent.name}
+            for id, name in enumerate(stock_names):
+                weights[name] = np.mean([a['action'][id] for a in infos])
+            agent_weights.append(weights)
+
             if plot_values:
                 df = pd.DataFrame(infos)
                 df = df[['date', 'port_value_old']]
@@ -70,7 +77,7 @@ class AgentsEvaluator:
                         df2['date'], format=date_format)
                     df2.set_index('date', inplace=True)
                     df2.plot(ax=ax2[row, col], title=stock_name,
-                             rot=30, legend=False, grid=True, ylim=[0,1])
+                             rot=30, legend=False, grid=True, ylim=[-0.02,1.02])
                 # plot CASH as last
                 col += 1
                 if col >= num_cols:
@@ -83,7 +90,7 @@ class AgentsEvaluator:
                     df2['date'], format=date_format)
                 df2.set_index('date', inplace=True)
                 df2.plot(ax=ax2[row, col], title=stock_names[0],
-                            rot=30, legend=False, grid=True, ylim=[0,1])
+                            rot=30, legend=False, grid=True, ylim=[-0.02,1.02])
 
         if market:  # also compare agents to market index
             agent_names.append('market')
@@ -119,7 +126,12 @@ class AgentsEvaluator:
         # print portfolio metrics
         agent_metrics = pd.DataFrame(agent_metrics)
         agent_metrics.set_index('agent', inplace=True)
-        print(agent_metrics)
+        print(agent_metrics, end='\n\n')
+
+        # print average portfolio weights
+        agent_weights = pd.DataFrame(agent_weights)
+        agent_weights.set_index('agent', inplace=True)
+        print(agent_weights, end='\n\n')
 
         if plot_values:  # plot agent generated portfolio values
             ax1.legend(agent_names)
