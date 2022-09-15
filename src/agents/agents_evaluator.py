@@ -76,8 +76,8 @@ class AgentsEvaluator:
                     df2['date'] = pd.to_datetime(
                         df2['date'], format=date_format)
                     df2.set_index('date', inplace=True)
-                    df2.plot(ax=ax2[row, col], title=stock_name,
-                             rot=30, legend=False, grid=True, ylim=[-0.02,1.02])
+                    df2.plot(ax=ax2[row, col], title=stock_name, rot=30, legend=False, grid=True)
+                        #, ylim=[-0.02,1.02])
                 # plot CASH as last
                 col += 1
                 if col >= num_cols:
@@ -89,8 +89,8 @@ class AgentsEvaluator:
                 df2['date'] = pd.to_datetime(
                     df2['date'], format=date_format)
                 df2.set_index('date', inplace=True)
-                df2.plot(ax=ax2[row, col], title=stock_names[0],
-                            rot=30, legend=False, grid=True, ylim=[-0.02,1.02])
+                df2.plot(ax=ax2[row, col], title=stock_names[0], rot=30, legend=False, grid=True)
+                    #, ylim=[-0.02,1.02])
 
         if market:  # also compare agents to market index
             agent_names.append('market')

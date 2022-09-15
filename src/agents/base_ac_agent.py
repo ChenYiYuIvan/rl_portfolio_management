@@ -27,7 +27,7 @@ class BaseACAgent(BaseAgent):
         self.name = args.name
         
         # network type
-        assert args.network_type in ('cnn', 'lstm', 'gru', 'cnn_gru')
+        assert args.network_type in ('cnn', 'lstm', 'gru', 'cnn_gru', 'msm')
         self.network_type = args.network_type
 
         self.preprocess = args.preprocess
@@ -268,7 +268,7 @@ class BaseACAgent(BaseAgent):
 
         prices = remove_not_used(prices)
 
-        if self.network_type == 'cnn':
+        if self.network_type == 'cnn' or self.network_type == 'msm':
             prices = cnn_transpose(prices)
         elif self.network_type == 'lstm' or self.network_type == 'gru':
             prices = rnn_transpose(prices)

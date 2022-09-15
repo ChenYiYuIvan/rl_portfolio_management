@@ -9,11 +9,11 @@ def main(agent_name):
 
     seed = 42
 
-    env_config_train = read_yaml_config('env_default_train')
-    env_config_test = read_yaml_config('env_default_test')
+    env_config_train = read_yaml_config('env_small_train')
+    env_config_test = read_yaml_config('env_small_test')
 
     if agent_name == 'ddpg':
-        agent_config = read_yaml_config('ddpg_1')
+        agent_config = read_yaml_config('ddpg_2')
         config = {'env_train':vars(env_config_train), 'env_test':vars(env_config_test), 'agent': vars(agent_config)}
 
         wandb.login()
@@ -24,7 +24,7 @@ def main(agent_name):
 
             agent = DDPGAgent('ddpg', env_train, seed, agent_config)
 
-            pretrained_path = './checkpoints_pretrained/cnn_real_7_49_noise/real_epoch59.pth'
+            #pretrained_path = './checkpoints_pretrained/cnn_real_7_49_noise/real_epoch59.pth'
             agent.train(run, env_test, None)
             #agent.eval(env_test, render=False)
 

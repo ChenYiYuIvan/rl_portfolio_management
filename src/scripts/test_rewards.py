@@ -8,12 +8,12 @@ import matplotlib.pyplot as plt
 
 seed = 42
 
-env_config = read_yaml_config('env_default_train')
+env_config = read_yaml_config('env_small_train')
 env = Portfolio(env_config)
 
-agent_config = read_yaml_config('ddpg_default')
+agent_config = read_yaml_config('ddpg_2')
 agent = DDPGAgent('ddpg', env, seed, agent_config)
-agent.load_actor_model(get_checkpoint_folder(agent, env) + '/ddpg_ep65.pth')
+agent.load_actor_model(get_checkpoint_folder(agent, env) + '/ddpg_ep3.pth')
 
 #agent = CRPAgent('crp', env, 42, 'diff_sharpe_ratio')
 

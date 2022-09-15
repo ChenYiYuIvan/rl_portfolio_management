@@ -12,6 +12,7 @@ from src.models.cnn_models import DeterministicCNNActor, CNNCritic
 from src.models.lstm_models import DeterministicLSTMActor, LSTMCritic
 from src.models.gru_models import DeterministicGRUActor, GRUCritic
 from src.models.cnn_gru_models import DeterministicCNNGRUActor, CNNGRUCritic
+from src.models.msm_models import DeterministicMSMActor, MSMCritic
 from src.models.noise import OrnsteinUhlenbeckActionNoise
 
 
@@ -62,6 +63,13 @@ class DDPGAgent(BaseACAgent):
 
             self.critic = CNNGRUCritic(num_price_features, num_stocks)
             self.critic_target = CNNGRUCritic(num_price_features, num_stocks)
+
+        elif self.network_type == 'msm':
+            self.actor = DeterministicMSMActor(num_price_features, num_stocks, window_length)
+            self.actor_target = DeterministicMSMActor(num_price_features, num_stocks, window_length)
+            
+            self.critic = MSMCritic(num_price_features, num_stocks, window_length)
+            self.critic_target = MSMCritic(num_price_features, num_stocks, window_length)
 
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
         self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic, weight_decay=1e-2)

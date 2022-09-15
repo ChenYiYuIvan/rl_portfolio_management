@@ -15,7 +15,7 @@ def main():
 
     seed = 42
 
-    env_config = read_yaml_config('env_default_train')
+    env_config = read_yaml_config('env_small_test')
     #env_config = read_yaml_config('env_default_test')
     env = Portfolio(env_config)
 
@@ -23,9 +23,15 @@ def main():
 
     ddpg_config = read_yaml_config('ddpg_1')
     ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
-    #ddpg.load_actor_model('./checkpoints_pretrained/cnn_real_7_49_noise/real_epoch59.pth')
-    ddpg.load_actor_model(get_checkpoint_folder(ddpg, env, False) + '/ddpg_ep1.pth')
+    #ddpg.load_actor_model('./checkpoints_pretrained/cnn_real_7_49/real_epoch89.pth')
+    ddpg.load_actor_model(get_checkpoint_folder(ddpg, env, False) + '/ddpg_ep50.pth')
     agents_list.append(ddpg)
+
+    ddpg_config2 = read_yaml_config('ddpg_2')
+    ddpg2 = DDPGAgent('ddpg', env, seed, ddpg_config2)
+    #ddpg.load_actor_model('./checkpoints_pretrained/cnn_real_7_49/real_epoch89.pth')
+    ddpg2.load_actor_model(get_checkpoint_folder(ddpg2, env, False) + '/ddpg_ep11.pth')
+    agents_list.append(ddpg2)
 
     #sac_config = read_yaml_config('sac_default')
     #sac = SACAgent('SAC', env, seed, sac_config)
@@ -42,7 +48,7 @@ def main():
     #agents_list.append(rng)
 
     evaluator = AgentsEvaluator(env, agents_list)
-    evaluator.evaluate_all(num_cols=4, exploration=False, plot_stocks=True, plot_log=True)
+    evaluator.evaluate_all(num_cols=4, exploration=False, plot_stocks=True, plot_log=False)
 
 
 if __name__ == '__main__':
