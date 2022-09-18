@@ -9,7 +9,7 @@ class BaseModel(nn.Module):
     def requires_grad(self, req, pretrained):
         for name, param in self.named_parameters():
             # if I have to unfreeze and network was pretraiend, keep common part frozen
-            if req and pretrained and name.startswith('common'):
+            if req and pretrained and 'common' in name:
                 continue
             param.requires_grad = req
 

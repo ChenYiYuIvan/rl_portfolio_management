@@ -40,6 +40,9 @@ class BaseACAgent(BaseAgent):
         self.gamma = args.gamma # for bellman equation
         self.reward_scale = args.reward_scale
 
+        # exploration during training
+        self.exploration_training = args.exploration_training
+
         # evaluate model every few episodes
         self.eval_steps = args.eval_steps
 
@@ -109,7 +112,7 @@ class BaseACAgent(BaseAgent):
         print("Begin train!")
 
         if pretrained_path is not None:
-            assert self.imitation_learning == 'passive', 'Using passive imitation learning but didn\'t provide path for pretrained model'
+            assert self.imitation_learning == 'passive', 'Provided path for pretrained model but not using passive imitation learning'
             self.load_pretrained(pretrained_path)
             self.checkpoint_folder = self.checkpoint_folder.replace('checkpoints', 'checkpoints_trained')
 
@@ -153,7 +156,7 @@ class BaseACAgent(BaseAgent):
                 
                 # select action
                 if self.buffer.size() >= self.batch_size and step >= self.warmup_steps:
-                    action = self.predict_action(curr_obs, True)
+                    action = self.predict_action(curr_obs, self.exploration_training)
                 else:
                     action = self.random_action()
 

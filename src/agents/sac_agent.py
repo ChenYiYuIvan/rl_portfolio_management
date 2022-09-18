@@ -1,4 +1,3 @@
-import itertools
 import torch
 import torch.nn as nn
 from torch.optim import Adam
@@ -6,13 +5,13 @@ from torch.cuda import amp
 
 from src.agents.base_ac_agent import BaseACAgent
 
-from src.utils.file_utils import get_checkpoint_folder
 from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
 
 from src.models.gaussian_actor import GaussianActor
 from src.models.critic import DoubleCritic
 from src.models.lstm_models import GaussianLSTMActor, DoubleLSTMCritic
 from src.models.gru_models import GaussianGRUActor, DoubleGRUCritic
+from src.models.msm_models import GaussianMSMActor, DoubleMSMCritic
 
 
 class SACAgent(BaseACAgent):
@@ -31,9 +30,6 @@ class SACAgent(BaseACAgent):
             self.alpha_optim = Adam([self.log_alpha], lr=args.lr_alpha)
         else: # fixed temperature
             self.alpha = args.alpha
-
-        # define checkpoint folder
-        self.checkpoint_folder = get_checkpoint_folder(self, self.env)
 
 
     def define_actors_critics(self, args):
@@ -72,6 +68,13 @@ class SACAgent(BaseACAgent):
             # target networks for soft q-functions
             self.critic_target = DoubleGRUCritic(num_price_features * num_stocks, self.action_dim)
 
+        elif self.network_type == 'msm':
+            self.actor = GaussianMSMActor(num_price_features, num_stocks, window_length)
+            self.actor_target = GaussianMSMActor(num_price_features, num_stocks, window_length)
+            
+            self.critic = DoubleMSMCritic(num_price_features, num_stocks, window_length)
+            self.critic_target = DoubleMSMCritic(num_price_features, num_stocks, window_length)
+
         # optimizers
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
         self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic)
@@ -85,18 +88,18 @@ class SACAgent(BaseACAgent):
         update_params(self.critic_target, self.critic, self.tau)
 
 
-    def set_networks_grad(self, networks, requires_grad):
+    def set_networks_grad(self, networks, requires_grad, pretrained=False):
         # networks = {'actor', 'critic', 'target'}
         # requires_grad = {True, False}
         assert networks in ('actor', 'critic', 'target')
         assert requires_grad in (True, False)
 
         if networks == 'actor':
-            self.actor.requires_grad(requires_grad)
+            self.actor.requires_grad(requires_grad, pretrained)
         elif networks == 'critic':
-            self.critic.requires_grad(requires_grad)
+            self.critic.requires_grad(requires_grad, pretrained)
         elif networks == 'target':
-            self.critic_target.requires_grad(requires_grad)
+            self.critic_target.requires_grad(requires_grad, pretrained)
 
 
     def compute_value_loss(self, s_batch, a_batch, r_batch, t_batch, s2_batch):
@@ -150,7 +153,9 @@ class SACAgent(BaseACAgent):
         return entropy_loss
 
 
-    def update(self, scaler, wandb_inst, step):
+    def update(self, scaler, wandb_inst, step, pretrained_path=None):
+
+        pretrained = pretrained_path is not None
 
         # sample batch
         s_batch, a_batch, r_batch, t_batch, s2_batch = self.buffer.sample_batch(self.batch_size)
@@ -161,7 +166,7 @@ class SACAgent(BaseACAgent):
         if self.alpha_tuning:
             self.alpha_optim.zero_grad()
 
-        self.set_networks_grad('actor', False)
+        self.set_networks_grad('actor', False, pretrained)
 
         # compute loss for critic
         with amp.autocast():
@@ -172,8 +177,8 @@ class SACAgent(BaseACAgent):
         scaler.step(self.critic_optim)
 
         # freeze critics, unfreze actor
-        self.set_networks_grad('actor', True)
-        self.set_networks_grad('critic', False)
+        self.set_networks_grad('actor', True, pretrained)
+        self.set_networks_grad('critic', False, pretrained)
 
         # compute loss for actor and for temperature alpha
         with amp.autocast():
@@ -196,13 +201,13 @@ class SACAgent(BaseACAgent):
         # update
         scaler.update()
 
-        self.set_networks_grad('critic', True)
+        self.set_networks_grad('critic', True, pretrained)
 
         # update target networks with polyak averaging
         self.update_target_params()
 
         # log to wandb
-        wandb_inst.log({'q_loss': q_loss, 'policy_loss': policy_loss, 'alpha': self.alpha}, step=step)
+        wandb_inst.log({'value_loss': q_loss, 'policy_loss': policy_loss, 'alpha': self.alpha}, step=step)
         if self.alpha_tuning:
             wandb_inst.log({'entropy_loss': entropy_loss}, step=step)
 
@@ -219,8 +224,9 @@ class SACAgent(BaseACAgent):
 
         return action
 
-    def load_actor_model(self, path):
-        self.actor.load_state_dict(torch.load(path))
+
+    def load_pretrained(self, path):
+        return super().load_pretrained(path)
 
 
     def set_train(self):

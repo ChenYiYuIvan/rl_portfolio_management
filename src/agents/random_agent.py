@@ -5,8 +5,8 @@ import numpy as np
 class RandomAgent(BaseAgent):
     # at each period the portfolio is rebalanced with random weights
 
-    def __init__(self, name, env, seed, reward_type):
-        super().__init__(name, env, seed, reward_type)
+    def __init__(self, name, env, seed):
+        super().__init__(name, env, seed)
 
 
     def predict_action(self, obs):

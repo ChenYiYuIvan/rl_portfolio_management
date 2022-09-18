@@ -7,7 +7,7 @@ from src.utils.torch_utils import USE_CUDA
 
 class BaseAgent:
 
-    def __init__(self, name, env, seed, reward_type):
+    def __init__(self, name, env, seed, reward_type=None):
 
         if seed > 0:
             self.seed(seed)
@@ -16,8 +16,11 @@ class BaseAgent:
         self.env = env
 
         # reward signal
-        assert reward_type in ('log_return', 'simple_return', 'diff_sharpe_ratio', 'diff_sortino_ratio')
-        self.reward_type = reward_type
+        if reward_type is None:
+            self.reward_type = 'log_return'
+        else:
+            assert reward_type in ('log_return', 'simple_return', 'diff_sharpe_ratio', 'diff_sortino_ratio')
+            self.reward_type = reward_type
 
         self.state_dim = self.env.observation_space.shape # [price features, stocks, time window]
         self.action_dim = self.env.action_space.shape[0] # cash + num stocks
@@ -88,7 +91,10 @@ class BaseAgent:
         elif self.reward_type == 'diff_sharpe_ratio':
             deltaA = simple_ret - self.A
             deltaB = simple_ret**2 - self.B
-            reward = (self.B * deltaA - self.A * deltaB / 2) / ((self.B - self.A**2)**(3/2) + 1e-12)
+
+            num = self.B * deltaA - self.A * deltaB / 2
+            denom = (self.B - self.A**2)**(3/2)
+            reward = num / (denom + 1e-12)
 
             self.A += self.eta * deltaA
             self.B += self.eta * deltaB
@@ -101,7 +107,7 @@ class BaseAgent:
             else:
                 num = self.DD**2 * (simple_ret - self.A / 2) - self.A * simple_ret**2 / 2
                 denom = self.DD**3
-            reward = num / denom
+            reward = num / (denom + 1e-12)
 
             self.A = self.A + self.eta * (simple_ret - self.A)
             self.DD = np.sqrt(self.DD**2 + self.eta * (np.minimum(simple_ret, 0)**2 - self.DD**2))
@@ -116,7 +122,7 @@ class BaseAgent:
         self.eta = 1e-5
         self.A = 0
         self.B = 0
-        self.DD = 1
+        self.DD = 0
 
 
     def seed(self,s):

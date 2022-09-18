@@ -5,10 +5,10 @@ from src.utils.file_utils import get_checkpoint_folder, read_yaml_config
 import numpy as np
 import matplotlib.pyplot as plt
 
-env_config = read_yaml_config('env_default_train')
+env_config = read_yaml_config('default/env_default_train')
 env = Portfolio(env_config)
 
-agent_config = read_yaml_config('ddpg_default')
+agent_config = read_yaml_config('default/ddpg')
 agent = DDPGAgent('ddpg', env, 42, agent_config)
 
 reward_vec = []

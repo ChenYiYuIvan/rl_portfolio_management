@@ -1,5 +1,6 @@
 import numpy as np
 from src.models.cnn_models import DeterministicCNNActor
+from src.models.msm_models import DeterministicMSMActor
 from torch.optim import Adam
 import torch.nn as nn
 from tqdm import tqdm
@@ -31,7 +32,9 @@ class PreTrainer:
 
         if self.network_type == 'cnn':
             self.actor = DeterministicCNNActor(args.num_price_features, args.num_stocks, window_length)
-        
+        elif self.network_type == 'msm':
+            self.actor = DeterministicMSMActor(args.num_price_features, args.num_stocks, window_length)
+
         if env_train is None:
             self.X_obs_train = np.load(f'{data_path}/X_obs_train.npy')
             self.X_weight_train = np.load(f'{data_path}/X_weight_train.npy')
@@ -47,10 +50,10 @@ class PreTrainer:
         self.num_stocks = args.num_stocks
 
         if env_train is not None:
-            self.agent_train = MPTAgent('mpt_train', env_train, args.seed, 'diff_sharpe_ratio', 'sharpe_ratio')
+            self.agent_train = MPTAgent('mpt_train', env_train, args.seed, 'sharpe_ratio')
 
         if env_test is not None:
-            self.agent_test = MPTAgent('mpt_test', env_test, args.seed, 'diff_sharpe_ratio', 'sharpe_ratio')
+            self.agent_test = MPTAgent('mpt_test', env_test, args.seed, 'sharpe_ratio')
 
         # hyper-parameters
         self.lr = 1e-3
@@ -326,7 +329,7 @@ if __name__ == '__main__':
     args = {
         'seed': 42,
         'eval_steps': 5,
-        'network_type': 'cnn',
+        'network_type': 'msm',
         'num_price_features': 3,
         'num_stocks': 7,
         'window_length': 50,
@@ -339,8 +342,8 @@ if __name__ == '__main__':
     with wandb.init(project="pretraining", entity="mldlproj1gr2", config=args, mode="online") as run:
         config = wandb.config
 
-        env_config_train = read_yaml_config('env_small_train')
-        env_config_test = read_yaml_config('env_small_test')
+        env_config_train = read_yaml_config('default/env_small_train')
+        env_config_test = read_yaml_config('default/env_small_test')
 
         env_train = Portfolio(env_config_train)
         env_test = Portfolio(env_config_test)

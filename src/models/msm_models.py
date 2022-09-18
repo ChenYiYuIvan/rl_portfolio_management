@@ -1,6 +1,9 @@
+from turtle import forward
 import torch
 import torch.nn as nn
+from torch.distributions.normal import Normal
 from src.models.base_models import BaseModel
+from src.utils.data_utils import EPS
 
 
 class FirstSM(BaseModel):
@@ -189,6 +192,51 @@ class DeterministicMSMActor(BaseModel):
         return x.squeeze()
 
 
+class GaussianMSMActor(BaseModel):
+
+    def __init__(self, price_features, num_stocks, window_length):
+        super().__init__()
+
+        self.common = BaseMSM(price_features, num_stocks, window_length)
+
+        num_assets = num_stocks + 1
+
+        self.fc_mu = nn.Linear(2*num_assets, num_assets)
+        self.fc_logstd = nn.Linear(2*num_assets, num_assets)
+
+        self.relu = nn.ReLU()
+
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x, w, exploration=True):
+        
+        x = self.common(x, w)
+
+        mu = self.fc_mu(x)
+        log_std = self.fc_logstd(x)
+        log_std = torch.clamp(log_std, -20, 2)
+        std = torch.exp(log_std)
+
+        # action distribution
+        pi_distribution = Normal(mu, std)
+        if exploration:
+            xs = pi_distribution.sample()
+        else:
+            # only when testing policy
+            xs = mu
+
+        # tanh squashing
+        pi_action = torch.tanh(xs)
+        
+        # compute log_probability of pi_action
+        log_pi = pi_distribution.log_prob(xs) - torch.log(1 - pi_action.pow(2) + EPS)
+        log_pi = log_pi.sum(dim=-1, keepdim=True)
+
+        x = self.softmax(pi_action)
+
+        return x.squeeze(), log_pi
+
+
 class MSMCritic(BaseModel):
     # represents the value function
 
@@ -212,3 +260,21 @@ class MSMCritic(BaseModel):
         # shape = [batch, 1]
 
         return x
+
+
+class DoubleMSMCritic(BaseModel):
+
+    def __init__(self, price_features, num_stocks, window_length):
+        super().__init__()
+
+        self.Q1 = MSMCritic(price_features, num_stocks, window_length)
+        self.Q2 = MSMCritic(price_features, num_stocks, window_length)
+
+    def forward(self, x, w, action):
+        # x = state
+        # w = past action
+
+        q1 = self.Q1(x, w, action)
+        q2 = self.Q2(x, w, action)
+
+        return q1, q2
