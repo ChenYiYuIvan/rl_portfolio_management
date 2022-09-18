@@ -1,0 +1,30 @@
+# default config for ddpg
+name: ddpg
+
+# True if include subprime mortgage crisis -> Train on 2007-01-01 - 2016-12-31
+# False if not -> Train on 2010-01-01 - 2018-12-31
+# For both -> Test on 201X-01-01 - 2020-12-31 (X=7 or 9)
+pre: True
+
+# cnn / lstm / gru / cnn_gru
+network_type: cnn
+
+# log_return, simple_return, diff_sharpe_ratio, diff_sortino_ratio
+reward_type: diff_sharpe_ratio
+
+# log_return, divide_close
+preprocess: log_return
+
+num_episodes: 100
+warmup_steps: 1000
+eval_steps: 1
+batch_size: 64
+tau: 0.001
+gamma: 0.99
+reward_scale: 0.0001
+buffer_size: 100000
+lr_actor: 0.0001
+lr_critic: 0.001
+
+# active / passive / none
+imitation_learning: none
