@@ -37,7 +37,7 @@ class BaseAgent:
 
         # initial state of environment
         self.reset()
-        curr_obs = env.reset()
+        curr_obs = env.reset(test_mode=True)
         curr_obs = self.preprocess_data(curr_obs)
 
         # initialize values

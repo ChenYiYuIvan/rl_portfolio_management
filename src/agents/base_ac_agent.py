@@ -115,6 +115,8 @@ class BaseACAgent(BaseAgent):
             assert self.imitation_learning == 'passive', 'Provided path for pretrained model but not using passive imitation learning'
             self.load_pretrained(pretrained_path)
             self.checkpoint_folder = self.checkpoint_folder.replace('checkpoints', 'checkpoints_trained')
+        elif pretrained_path is None:
+            assert self.imitation_learning != 'passive', 'Using passive imitation learning but didn\'t provide path of pretrained model'
 
         wandb_inst.watch((self.actor, self.critic), log='all', log_freq=100)
         artifact = wandb.Artifact(name=self.name, type='model')
@@ -132,7 +134,7 @@ class BaseACAgent(BaseAgent):
         for episode in range(self.num_episodes):
 
             # logging
-            num_steps = self.env.market.tot_steps
+            num_steps = self.env.max_steps
             tq = tqdm(total=num_steps)
             tq.set_description('episode %d' % (episode))
 

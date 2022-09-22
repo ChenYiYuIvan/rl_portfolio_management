@@ -15,22 +15,25 @@ def main():
 
     seed = 42
 
-    env_config = read_yaml_config('default/env_small_train')
+    #env_config = read_yaml_config('default/env_small_train')
+    env_config = read_yaml_config('experiments/env_train_0')
     env = Portfolio(env_config)
 
     agents_list = []
 
-    ddpg_config = read_yaml_config('experiments/ddpg_4')
-    ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
-    #ddpg.load_actor_model('./checkpoints_pretrained/cnn_real_7_49/real_epoch89.pth')
-    print(get_checkpoint_folder(ddpg, env, ddpg.imitation_learning == 'passive'))
-    ddpg.load_actor_model(get_checkpoint_folder(ddpg, env, ddpg.imitation_learning == 'passive') + '/ddpg_ep99.pth')
-    agents_list.append(ddpg)
+    #ddpg_config = read_yaml_config('experiments/ddpg_2')
+    #ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
+    #model_folder = get_checkpoint_folder(ddpg, env, ddpg.imitation_learning == 'passive')
+    #print(model_folder)
+    #ddpg.load_actor_model(model_folder + '/ddpg_ep58.pth')
+    ##ddpg.load_actor_model('./checkpoints_pretrained/msm_real_7_49/real_epoch99.pth')
+    #agents_list.append(ddpg)
 
-    #sac_config = read_yaml_config('sac_default')
-    #sac = SACAgent('SAC', env, seed, sac_config)
-    #sac.load_actor_model(get_checkpoint_folder(sac, env) + '/sac_ep2.pth')
-    #agents_list.append(sac)
+    sac_config = read_yaml_config('experiments/sac_2')
+    sac = SACAgent('SAC', env, seed, sac_config)
+    model_folder = get_checkpoint_folder(sac, env, sac.imitation_learning == 'passive')
+    sac.load_actor_model(model_folder + '/sac_ep99.pth')
+    agents_list.append(sac)
 
     crp = CRPAgent('crp', env, seed)
     agents_list.append(crp)

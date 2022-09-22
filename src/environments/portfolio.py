@@ -42,6 +42,13 @@ class Portfolio(gym.Env):
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf,
                                                 shape=(len(self.stock_names), self.window_length, 3), dtype=np.float32)
 
+        if hasattr(config, 'random_start') and hasattr(config, 'max_steps'):
+            self.random_start = config.random_start
+            self.max_steps = config.max_steps
+        else:
+            self.random_start = False
+            self.max_steps = self.market.tot_steps
+
         # Portfolio environment in which everything is done at end of day
         # -> state s_t == weights and value of portfolio at end of day t before rebalance
         # -> action a_t == rebalanced portfolio
@@ -150,7 +157,7 @@ class Portfolio(gym.Env):
         
         return remaining_value
 
-    def reset(self):
+    def reset(self, test_mode=False):
         # reset environment to initial state
 
         self.infos = []
@@ -162,7 +169,11 @@ class Portfolio(gym.Env):
 
         # open, low, high, close, volume data of day 0
         # curr_obs shape: [stocks, time window, price features]
-        curr_obs = self.market.reset()
+
+        if test_mode: # start from start date
+            curr_obs = self.market.reset()
+        else: # start from random date
+            curr_obs = self.market.reset(self.random_start, self.max_steps)
 
         # initialize values needed for differential sharpe ratio (A_t and B_t)
         # A_t = first moment of returns

@@ -12,7 +12,7 @@ env = Portfolio(env_config)
 
 agent = RandomAgent('rng', env, 42, 'log_return')
 
-curr_rets, curr_weights = env.reset()
+curr_rets, curr_weights = env.reset(test_mode=True)
 done = False
 
 exact_vec = []

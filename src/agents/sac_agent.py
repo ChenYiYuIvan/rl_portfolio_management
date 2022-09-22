@@ -30,6 +30,7 @@ class SACAgent(BaseACAgent):
             self.alpha_optim = Adam([self.log_alpha], lr=args.lr_alpha)
         else: # fixed temperature
             self.alpha = args.alpha
+            self.checkpoint_folder += '_fixedalpha'
 
 
     def define_actors_critics(self, args):

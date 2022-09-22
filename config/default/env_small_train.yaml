@@ -14,3 +14,6 @@ stock_names:
 init_portfolio_value: 1
 trading_cost: 0.002
 continuous: false
+
+random_start: True
+max_steps: 1000

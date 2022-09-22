@@ -214,7 +214,7 @@ class GaussianMSMActor(BaseModel):
 
         mu = self.fc_mu(x)
         log_std = self.fc_logstd(x)
-        log_std = torch.clamp(log_std, -20, 2)
+        #log_std = torch.clamp(log_std, -20, 2)
         std = torch.exp(log_std)
 
         # action distribution
@@ -232,7 +232,10 @@ class GaussianMSMActor(BaseModel):
         log_pi = pi_distribution.log_prob(xs) - torch.log(1 - pi_action.pow(2) + EPS)
         log_pi = log_pi.sum(dim=-1, keepdim=True)
 
-        x = self.softmax(pi_action)
+        #x = self.softmax(pi_action)
+        x = (pi_action + 1) / 2
+        total = x.sum(dim=-1)
+        x /= total[:,None]
 
         return x.squeeze(), log_pi
 

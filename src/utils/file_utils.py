@@ -35,6 +35,8 @@ def get_checkpoint_folder(agent, env, pretrained=False):
         folder += f'_scale{agent.reward_scale}'
     if agent.imitation_learning == 'active':
         folder += '_ail'
+    if not agent.exploration_training:
+        folder += '_noexpltrain'
 
     return folder
     

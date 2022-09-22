@@ -57,14 +57,20 @@ class Market():
         next_obs = deepcopy(self.data[:, self.next_step + 1 : self.next_step + self.window_length + 1, :])
 
         self.next_step += 1
-        done = self.next_step >= self.tot_steps  # if true, it means simulation has reached end date
+        done = self.next_step - self.start_step >= self.max_steps  # if true, it means simulation has reached end date
 
         return curr_obs, next_obs, done
 
 
-    def reset(self):
+    def reset(self, random_start=False, max_steps=None):
         # reset environment to initial state
-        self.next_step = 0
+        if random_start and max_steps is not None:
+            self.start_step = np.random.randint(0, self.tot_steps - max_steps + 1)
+            self.max_steps = max_steps
+        else:
+            self.start_step = 0
+            self.max_steps = self.tot_steps
+        self.next_step = self.start_step
 
         curr_obs = deepcopy(self.data[:, self.next_step : self.next_step + self.window_length, :])
 

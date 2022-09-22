@@ -168,7 +168,7 @@ class PreTrainer:
                         y_true = y_true.detach().numpy()
 
                     #action = (y_pred + y_true) / 2
-                    action = y_pred
+                    action = y_true
                     if self.noise:
                         action = self.add_action_noise(action)
                     (obs, weight), done, _ = self.agent_train.env.step(action)
@@ -227,7 +227,7 @@ class PreTrainer:
         else:
 
             self.agent_test.reset()
-            obs, weight = self.agent_test.env.reset()
+            obs, weight = self.agent_test.env.reset(test_mode=True)
 
             done = False
             while not done:
@@ -253,7 +253,8 @@ class PreTrainer:
                 y_pred_vec.append(y_pred)
 
                 # step forward environment
-                (obs, weight), done, _ = self.agent_test.env.step(y_pred)
+                action = y_true
+                (obs, weight), done, _ = self.agent_test.env.step(action)
 
         loss_eval_mean = np.mean(loss_eval_vec)
 

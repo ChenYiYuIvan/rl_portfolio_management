@@ -4,7 +4,7 @@ from src.utils.file_utils import read_yaml_config
 import numpy as np
 import matplotlib.pyplot as plt
 
-reward_type = 'sharpe_ratio'
+reward_type = 'sortino_ratio'
 
 seed = 42
 
@@ -13,9 +13,10 @@ env = Portfolio(env_config)
 
 agent = RandomAgent('crp', env, 42)
 agent.reward_type = f'diff_{reward_type}'
+agent.reward_scale = 1e-4
 
 agent.reset()
-curr_obs = env.reset()
+curr_obs = env.reset(test_mode=True)
 curr_obs = agent.preprocess_data(curr_obs)
 
 diff_reward_approx = []
