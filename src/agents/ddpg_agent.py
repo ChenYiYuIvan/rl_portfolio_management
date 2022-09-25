@@ -13,6 +13,7 @@ from src.models.lstm_models import DeterministicLSTMActor, LSTMCritic
 from src.models.gru_models import DeterministicGRUActor, GRUCritic
 from src.models.cnn_gru_models import DeterministicCNNGRUActor, CNNGRUCritic
 from src.models.msm_models import DeterministicMSMActor, MSMCritic
+from src.models.transformer_model import DeterministicTransformerActor, TransformerCritic
 from src.models.noise import OrnsteinUhlenbeckActionNoise
 
 
@@ -70,6 +71,16 @@ class DDPGAgent(BaseACAgent):
             
             self.critic = MSMCritic(num_price_features, num_stocks, window_length)
             self.critic_target = MSMCritic(num_price_features, num_stocks, window_length)
+
+        elif self.network_type == 'trans':
+            # close - high - low - volume
+            num_price_features = 4
+
+            self.actor = DeterministicTransformerActor(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+            self.actor_target = DeterministicTransformerActor(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+
+            self.critic = TransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+            self.critic_target = TransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
 
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
         self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic, weight_decay=1e-2)

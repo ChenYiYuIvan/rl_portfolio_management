@@ -7,7 +7,7 @@ from src.agents.base_agent import BaseAgent
 
 from src.utils.file_utils import get_checkpoint_folder
 from src.utils.torch_utils import USE_CUDA
-from src.utils.data_utils import cnn_rnn_transpose, prices_to_logreturns, prices_to_norm, remove_not_used, rnn_transpose, cnn_transpose
+from src.utils.data_utils import cnn_rnn_transpose, prices_to_logreturns, prices_to_norm, remove_not_used, rnn_transpose, cnn_transpose, prices_to_range
 
 from src.models.replay_buffer import ReplayBuffer
 
@@ -27,7 +27,7 @@ class BaseACAgent(BaseAgent):
         self.name = args.name
         
         # network type
-        assert args.network_type in ('cnn', 'lstm', 'gru', 'cnn_gru', 'msm')
+        assert args.network_type in ('cnn', 'lstm', 'gru', 'cnn_gru', 'msm', 'trans')
         self.network_type = args.network_type
 
         self.preprocess = args.preprocess
@@ -270,12 +270,17 @@ class BaseACAgent(BaseAgent):
             prices = prices_to_logreturns(prices)
         elif self.preprocess == 'divide_close':
             prices = prices_to_norm(prices)
+        elif self.preprocess == 'minmax':
+            prices = prices_to_range(prices)
 
-        prices = remove_not_used(prices)
+        if self.network_type == 'trans':
+            prices = remove_not_used(prices, volume=False)
+        else:
+            prices = remove_not_used(prices)
 
         if self.network_type == 'cnn' or self.network_type == 'msm':
             prices = cnn_transpose(prices)
-        elif self.network_type == 'lstm' or self.network_type == 'gru':
+        elif self.network_type == 'trans' or self.network_type == 'lstm' or self.network_type == 'gru':
             prices = rnn_transpose(prices)
         elif self.network_type == 'cnn_gru':
             prices = cnn_rnn_transpose(prices)

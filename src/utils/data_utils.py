@@ -80,6 +80,14 @@ def prices_to_norm(prices):
     norm = np.divide(prices, closing)
 
     return norm
+
+
+def prices_to_range(prices):
+    minimum = np.min(prices, axis=-1)[:,:,None]
+    maximum = np.max(prices, axis=-1)[:,:,None]
+
+    result = (prices - minimum) / (maximum - minimum)
+    return result
     
 
 def prices_to_simplereturns(prices):

@@ -13,7 +13,7 @@ def main(agent_name):
     env_config_test = read_yaml_config('experiments/env_test_0')
 
     if agent_name == 'ddpg':
-        agent_config = read_yaml_config('experiments/ddpg_5')
+        agent_config = read_yaml_config('experiments/ddpg_8')
         config = {'env_train':vars(env_config_train), 'env_test':vars(env_config_test), 'agent': vars(agent_config)}
 
         wandb.login()
