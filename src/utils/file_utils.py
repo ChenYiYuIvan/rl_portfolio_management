@@ -19,24 +19,6 @@ def read_yaml_config(file_name):
     return Struct(**dic)
 
 
-def get_checkpoint_folder(agent, env, pretrained=False):
-    if not pretrained:
-        folder = './checkpoints/'
-    else:
-        folder = './checkpoints_trained/'
-    if agent.pre:
-        folder += 'pre_'
-    folder += f'{agent.name}_{agent.network_type}_{agent.reward_type}_stocks{env.observation_space.shape[0]}_batch{agent.batch_size}_window{env.window_length}'
-    if agent.preprocess == 'divide_close':
-        folder += '_close'
-    if hasattr(agent, 'reward_scale'):
-        scale = str(agent.reward_scale)
-        scale = scale.replace('.', '_')
-        folder += f'_scale{agent.reward_scale}'
-    if agent.imitation_learning == 'active':
-        folder += '_ail'
-    if not agent.exploration_training:
-        folder += '_noexpltrain'
-
+def get_checkpoint_folder(agent_name, env_name):
+    folder = f'./checkpoints/{agent_name}_{env_name}'
     return folder
-    

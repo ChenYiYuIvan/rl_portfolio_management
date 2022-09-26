@@ -16,6 +16,7 @@ from src.utils.portfolio_utils import get_opt_portfolio
 from tqdm import tqdm
 import wandb
 import os
+import copy
 
 
 class BaseACAgent(BaseAgent):
@@ -23,9 +24,6 @@ class BaseACAgent(BaseAgent):
     def __init__(self, name, env, seed, args):
         super().__init__(name, env, seed, args.reward_type)
 
-        # agent name from config
-        self.name = args.name
-        
         # network type
         assert args.network_type in ('cnn', 'lstm', 'gru', 'cnn_gru', 'msm', 'trans')
         self.network_type = args.network_type
@@ -69,8 +67,7 @@ class BaseACAgent(BaseAgent):
         self.set_networks_grad('target', False)
 
         # define checkpoint folder
-        self.pre = args.pre
-        self.checkpoint_folder = get_checkpoint_folder(self, self.env)
+        self.checkpoint_folder = get_checkpoint_folder(args.name, env.name)
 
 
     def define_actors_critics(self, args):
@@ -114,7 +111,6 @@ class BaseACAgent(BaseAgent):
         if pretrained_path is not None:
             assert self.imitation_learning == 'passive', 'Provided path for pretrained model but not using passive imitation learning'
             self.load_pretrained(pretrained_path)
-            self.checkpoint_folder = self.checkpoint_folder.replace('checkpoints', 'checkpoints_trained')
         elif pretrained_path is None:
             assert self.imitation_learning != 'passive', 'Using passive imitation learning but didn\'t provide path of pretrained model'
 
@@ -246,11 +242,20 @@ class BaseACAgent(BaseAgent):
                     max_ep_reward_val = ep_reward_val
                     wandb_inst.summary['max_ep_reward_val'] = max_ep_reward_val
 
-                # save trained model
-                actor_path_name = os.path.join(self.checkpoint_folder,
-                    f'{self.name}_ep{episode}.pth')
-                torch.save(self.actor.state_dict(), actor_path_name)
-                artifact.add_file(actor_path_name, name=f'{self.name}_ep{episode}.pth')
+                # save trained models
+                path_name = os.path.join(self.checkpoint_folder, f'ep{episode}_')
+
+                torch.save(self.actor.state_dict(), path_name + 'actor.pth')
+                artifact.add_file(path_name + 'actor.pth', name=f'ep{episode}_actor.pth')
+
+                torch.save(self.actor_optim.state_dict(), path_name + 'actor_optim.pth')
+                artifact.add_file(path_name + 'actor_optim.pth', name=f'ep{episode}_actor_optim.pth')
+
+                torch.save(self.critic.state_dict(), path_name + 'critic.pth')
+                artifact.add_file(path_name + 'critic.pth', name=f'ep{episode}_critic.pth')
+
+                torch.save(self.critic_optim.state_dict(), path_name + 'critic_optim.pth')
+                artifact.add_file(path_name + 'critic_optim.pth', name=f'ep{episode}_critic_optim.pth')
 
         wandb_inst.log_artifact(artifact)
 
@@ -288,7 +293,22 @@ class BaseACAgent(BaseAgent):
         return (prices, weights)
 
 
-    def load_actor_model(self, path):
+    def load_models(self, episode):
+        path = os.path.join(self.checkpoint_folder, f'ep{episode}_')
+
+        self.actor.load_state_dict(torch.load(path + 'actor.pth'))
+        self.critic.load_state_dict(torch.load(path + 'critic.pth'))
+
+        self.actor_optim.load_state_dict(torch.load(path + 'actor_optim.pth'))
+        self.critic_optim.load_state_dict(torch.load(path + 'critic_optim.pth'))
+
+        if hasattr(self, 'actor_target'):
+            self.actor_target = copy.deepcopy(self.actor)
+        if hasattr(self, 'critic_target'):
+            self.critic_target = copy.deepcopy(self.critic)
+
+
+    def load_actor_from_path(self, path):
         self.actor.load_state_dict(torch.load(path))
 
 

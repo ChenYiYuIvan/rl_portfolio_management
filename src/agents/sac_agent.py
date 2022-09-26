@@ -71,7 +71,6 @@ class SACAgent(BaseACAgent):
 
         elif self.network_type == 'msm':
             self.actor = GaussianMSMActor(num_price_features, num_stocks, window_length)
-            self.actor_target = GaussianMSMActor(num_price_features, num_stocks, window_length)
             
             self.critic = DoubleMSMCritic(num_price_features, num_stocks, window_length)
             self.critic_target = DoubleMSMCritic(num_price_features, num_stocks, window_length)

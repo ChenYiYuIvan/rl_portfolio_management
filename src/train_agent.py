@@ -1,5 +1,5 @@
 import wandb
-from src.utils.file_utils import read_yaml_config, get_checkpoint_folder
+from src.utils.file_utils import read_yaml_config
 from src.environments.portfolio import Portfolio
 from src.agents.ddpg_agent import DDPGAgent
 from src.agents.sac_agent import SACAgent

@@ -17,6 +17,8 @@ class Portfolio(gym.Env):
         # no slippage assumption: transaction happens immediately
         # -> stock prices are the same as when the order was put
 
+        self.name = config.name
+
         self.continuous = config.continuous  # bool to use continuous market assumption
 
         self.window_length = config.window_length

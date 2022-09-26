@@ -5,7 +5,7 @@ from src.agents.sac_agent import SACAgent
 from src.agents.crp_agent import CRPAgent
 from src.agents.mpt_agent import MPTAgent
 from src.agents.random_agent import RandomAgent
-from src.utils.file_utils import read_yaml_config, get_checkpoint_folder
+from src.utils.file_utils import read_yaml_config
 
 import pandas as pd
 pd.options.display.float_format = '{:,.6f}'.format
@@ -21,12 +21,10 @@ def main():
 
     agents_list = []
 
-    ddpg_config = read_yaml_config('experiments/ddpg_7')
+    ddpg_config = read_yaml_config('experiments/ddpg_8')
     ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
-    model_folder = get_checkpoint_folder(ddpg, env, ddpg.imitation_learning == 'passive')
-    print(model_folder)
-    ddpg.load_actor_model(model_folder + '/ddpg_ep1.pth')
-    #ddpg.load_actor_model('./checkpoints_pretrained/msm_real_7_49/real_epoch99.pth')
+    ddpg.load_models(0)
+    #ddpg.load_actor_from_path('./checkpoints_pretrained/msm_real_7_49/real_epoch99.pth')
     agents_list.append(ddpg)
 
     #sac_config = read_yaml_config('experiments/sac_2')

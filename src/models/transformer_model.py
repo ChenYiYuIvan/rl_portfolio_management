@@ -110,7 +110,6 @@ class DeterministicTransformerActor(BaseModel):
         x = self.common(x, w)
 
         x = self.fc(x)
-        print(x)
         x = self.softmax(x)
 
         return x.squeeze()
