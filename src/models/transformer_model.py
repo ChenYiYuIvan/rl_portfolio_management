@@ -141,3 +141,21 @@ class TransformerCritic(BaseModel):
         x = self.fc(x)
 
         return x.squeeze(0)
+
+
+class DoubleTransformerCritic(BaseModel):
+
+    def __init__(self, price_features, num_stocks, window_length, d_model, num_heads, num_layers):
+        super().__init__()
+
+        self.Q1 = TransformerCritic(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
+        self.Q2 = TransformerCritic(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
+
+    def forward(self, x, w, action):
+        # x = state
+        # w = past action
+
+        q1 = self.Q1(x, w, action)
+        q2 = self.Q2(x, w, action)
+
+        return q1, q2
