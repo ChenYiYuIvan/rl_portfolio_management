@@ -10,8 +10,9 @@ def main(agent_name):
 
     seed = 42
 
-    env_config_train = read_yaml_config('experiments/env_train_0')
-    env_config_test = read_yaml_config('experiments/env_test_0')
+    env_config_train = read_yaml_config('experiments/env_train_1')
+    env_config_test = read_yaml_config('experiments/env_test_1')
+    env_vers = env_config_train.name
 
     env_train = Portfolio(env_config_train)
     env_test = Portfolio(env_config_test)
@@ -21,17 +22,20 @@ def main(agent_name):
         agent = DDPGAgent('ddpg', env_train, seed, agent_config)
 
     elif agent_name == 'td3':
-        agent_config = read_yaml_config('experiments/td3_0')
+        agent_config = read_yaml_config('experiments/td3_2')
         agent = TD3Agent('td3', env_train, seed, agent_config)
 
     elif agent_name == 'sac':
-        agent_config = read_yaml_config('experiments/sac_2')
+        agent_config = read_yaml_config('experiments/sac_7')
         agent = SACAgent('sac', env_train, seed, agent_config)
+
+    agent_vers = agent_config.name
 
     config = {'env_train':vars(env_config_train), 'env_test':vars(env_config_test), 'agent': vars(agent_config)}
 
     wandb.login()
-    with wandb.init(project="thesis", entity="mldlproj1gr2", config=config, mode="online") as run:
+    with wandb.init(project="thesis", entity="mldlproj1gr2", name=f"{agent_vers}_{env_vers}",
+                    config=config, mode="online") as run:
 
         #pretrained_path = './checkpoints_pretrained/msm_real_7_49/real_epoch99.pth'
         agent.train(run, env_test, pretrained_path=None)
@@ -41,5 +45,5 @@ def main(agent_name):
 if __name__ == '__main__':
 
     #main('ddpg')
-    main('td3')
-    #main('sac')
+    #main('td3')
+    main('sac')

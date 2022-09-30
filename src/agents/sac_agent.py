@@ -12,6 +12,7 @@ from src.models.critic import DoubleCritic
 from src.models.lstm_models import GaussianLSTMActor, DoubleLSTMCritic
 from src.models.gru_models import GaussianGRUActor, DoubleGRUCritic
 from src.models.msm_models import GaussianMSMActor, DoubleMSMCritic
+from src.models.transformer_model import GaussianTransformerActor, DoubleTransformerCritic
 
 
 class SACAgent(BaseACAgent):
@@ -30,7 +31,6 @@ class SACAgent(BaseACAgent):
             self.alpha_optim = Adam([self.log_alpha], lr=args.lr_alpha)
         else: # fixed temperature
             self.alpha = args.alpha
-            self.checkpoint_folder += '_fixedalpha'
 
 
     def define_actors_critics(self, args):
@@ -74,6 +74,16 @@ class SACAgent(BaseACAgent):
             
             self.critic = DoubleMSMCritic(num_price_features, num_stocks, window_length)
             self.critic_target = DoubleMSMCritic(num_price_features, num_stocks, window_length)
+
+        elif self.network_type == 'trans':
+            # close - high - low - volume
+            num_price_features = 4
+
+            self.actor = GaussianTransformerActor(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+
+            self.critic = DoubleTransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+            self.critic_target = DoubleTransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+
 
         # optimizers
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)

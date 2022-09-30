@@ -1,10 +1,13 @@
+from turtle import forward
 import torch
 from torch import nn
+from torch.distributions.normal import Normal
 from src.models.base_models import BaseModel
+from src.utils.data_utils import EPS
 import math
 
 
-class PositionalEncoding(nn.Module):
+class OriginalEncoder(nn.Module):
 
     def __init__(self, d_model, dropout=0.1, max_len=50):
         """
@@ -31,6 +34,7 @@ class PositionalEncoding(nn.Module):
 
         return self.dropout(x)
 
+
 class BaseTransformer(BaseModel):
 
     def __init__(self, price_features, num_stocks, window_length, d_model, num_heads, num_layers):
@@ -40,7 +44,7 @@ class BaseTransformer(BaseModel):
         num_assets = num_stocks + 1
 
         self.input_fc = nn.Linear(num_input_features, d_model)
-        self.positional_encoder = PositionalEncoding(d_model=d_model, max_len=window_length)
+        self.positional_encoder = OriginalEncoder(d_model=d_model, max_len=window_length)
         
         encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=num_heads, batch_first=True)
         self.encoder = nn.TransformerEncoder(encoder_layer=encoder_layer, num_layers=num_layers)
@@ -113,6 +117,50 @@ class DeterministicTransformerActor(BaseModel):
         x = self.softmax(x)
 
         return x.squeeze()
+
+
+class GaussianTransformerActor(BaseModel):
+
+    def __init__(self, price_features, num_stocks, window_length, d_model, num_heads, num_layers):
+        super().__init__()
+
+        self.common = BaseTransformer(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
+
+        num_assets = num_stocks + 1
+
+        self.fc_mu = nn.Linear(d_model, num_assets)
+        self.fc_logstd = nn.Linear(d_model, num_assets)
+
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x, w, exploration=True):
+
+        x = self.common(x, w)
+
+        mu = self.fc_mu(x)
+
+        log_std = self.fc_logstd(x)
+        std = torch.exp(log_std)
+
+        pi_distribution = Normal(mu, std)
+        if exploration:
+            xs = pi_distribution.sample()
+        else:
+            xs = mu
+
+    # tanh squashing
+        pi_action = torch.tanh(xs)
+        
+        # compute log_probability of pi_action
+        log_pi = pi_distribution.log_prob(xs) - torch.log(1 - pi_action.pow(2) + EPS)
+        log_pi = log_pi.sum(dim=-1, keepdim=True)
+
+        #x = self.softmax(pi_action)
+        x = (pi_action + 1) / 2
+        total = x.sum(dim=-1)
+        x /= total[:,None]
+
+        return x.squeeze(), log_pi
 
 
 class TransformerCritic(BaseModel):

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from empyrical import simple_returns, sharpe_ratio, sortino_ratio, max_drawdown, value_at_risk, conditional_value_at_risk
 
 
-EPS = 1e-6
+EPS = 1e-8
 
 
 def plot_stocks_info(env, num_cols=4, print_metrics=True, plot_log=True):

@@ -8,7 +8,7 @@ reward_type = 'sortino_ratio'
 
 seed = 42
 
-env_config = read_yaml_config('default/env_small_train')
+env_config = read_yaml_config('experiments/env_train_0')
 env = Portfolio(env_config)
 
 agent = RandomAgent('crp', env, 42)

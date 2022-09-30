@@ -73,6 +73,7 @@ class Portfolio(gym.Env):
         action_info = self._take_action(curr_obs, action, next_obs)
 
         next_state = (next_obs, self.weights)
+        #next_state = (next_obs, action)
 
         return next_state, done, action_info
 
