@@ -17,7 +17,7 @@ def main():
     seed = 42
 
     #env_config = read_yaml_config('default/env_small_train')
-    env_config = read_yaml_config('experiments/env_train_1')
+    env_config = read_yaml_config('experiments/env_test_1')
     env = Portfolio(env_config)
 
     agents_list = []
@@ -35,7 +35,7 @@ def main():
 
     sac_config = read_yaml_config('experiments/sac_7')
     sac = SACAgent('sac', env, seed, sac_config)
-    sac.load_models(20)
+    sac.load_models(43)
     agents_list.append(sac)
 
     crp = CRPAgent('crp', env, seed)

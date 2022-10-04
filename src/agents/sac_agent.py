@@ -39,6 +39,9 @@ class SACAgent(BaseACAgent):
         window_length = self.state_dim[1]
         num_stocks = self.state_dim[0]
 
+        if self.preprocess == 'log_return':
+            window_length -= 1 # because log returns instead of actual prices
+
         if self.network_type == 'cnn':
             # policy function
             self.actor = GaussianActor(num_price_features, window_length)

@@ -26,7 +26,7 @@ def main(agent_name):
         agent = TD3Agent('td3', env_train, seed, agent_config)
 
     elif agent_name == 'sac':
-        agent_config = read_yaml_config('experiments/sac_7')
+        agent_config = read_yaml_config('experiments/sac_4')
         agent = SACAgent('sac', env_train, seed, agent_config)
 
     agent_vers = agent_config.name

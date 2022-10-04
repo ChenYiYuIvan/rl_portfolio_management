@@ -83,8 +83,8 @@ def prices_to_norm(prices):
 
 
 def prices_to_range(prices):
-    minimum = np.min(prices, axis=-1)[:,:,None]
-    maximum = np.max(prices, axis=-1)[:,:,None]
+    minimum = np.min(prices, axis=1)[:,None,:]
+    maximum = np.max(prices, axis=1)[:,None,:]
 
     result = (prices - minimum) / (maximum - minimum)
     return result

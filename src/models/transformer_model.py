@@ -7,7 +7,7 @@ from src.utils.data_utils import EPS
 import math
 
 
-class OriginalEncoder(nn.Module):
+class PositionalEncoder(nn.Module):
 
     def __init__(self, d_model, dropout=0.1, max_len=50):
         """
@@ -28,7 +28,7 @@ class OriginalEncoder(nn.Module):
     def forward(self, x):
         """
         Args:
-            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+            x: Tensor, shape [batch_size, seq_len, embedding_dim]
         """
         x = x + self.pe[:x.size(0)]
 
@@ -41,10 +41,9 @@ class BaseTransformer(BaseModel):
         super().__init__()
 
         num_input_features = price_features * num_stocks
-        num_assets = num_stocks + 1
 
         self.input_fc = nn.Linear(num_input_features, d_model)
-        self.positional_encoder = OriginalEncoder(d_model=d_model, max_len=window_length)
+        self.positional_encoder = PositionalEncoder(d_model=d_model, max_len=window_length)
         
         encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=num_heads, batch_first=True)
         self.encoder = nn.TransformerEncoder(encoder_layer=encoder_layer, num_layers=num_layers)
@@ -52,18 +51,14 @@ class BaseTransformer(BaseModel):
         self.encoder_conv = nn.Conv1d(d_model, 1, kernel_size=1)
         self.encoder_fc = nn.Linear(window_length, d_model)
 
-        self.weights_fc = nn.Linear(num_assets, d_model)
-
-        self.fc = nn.Linear(2*d_model, d_model)
         self.dropout = nn.Dropout(0.1)
 
         self.relu = nn.ReLU()
 
-    def forward(self, x, w):
+    def forward(self, x):
 
         if len(x.shape) == 3:
             x = x[None,:,:,:]
-            w = w[None,:]
         # shape = [batch, window_length, num_stocks, price_features]
 
         x = torch.flatten(x, 2)
@@ -87,6 +82,33 @@ class BaseTransformer(BaseModel):
         x = self.dropout(self.relu(self.encoder_fc(x)))
         # shape = [batch, d_model]
 
+        return x
+
+
+class BaseActionTransformer(BaseModel):
+
+    def __init__(self, price_features, num_stocks, window_length, d_model, num_heads, num_layers):
+        super().__init__()
+
+        num_assets = num_stocks + 1
+
+        self.base = BaseTransformer(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
+
+        self.weights_fc = nn.Linear(num_assets, d_model)
+
+        self.fc = nn.Linear(2*d_model, d_model)
+
+        self.dropout = nn.Dropout(0.1)
+
+        self.relu = nn.ReLU()
+
+    def forward(self, x, w):
+
+        if len(w.shape) == 1:
+            w = w[None,:]
+
+        x = self.base(x)
+
         w = self.dropout(self.relu(self.weights_fc(w)))
         x = torch.cat((x, w), dim=-1)
         # shape = [batch, 2*d_model]
@@ -102,7 +124,7 @@ class DeterministicTransformerActor(BaseModel):
     def __init__(self, price_features, num_stocks, window_length, d_model, num_heads, num_layers):
         super().__init__()
 
-        self.common = BaseTransformer(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
+        self.common = BaseActionTransformer(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
 
         num_assets = num_stocks + 1
         self.fc = nn.Linear(d_model, num_assets)
@@ -124,7 +146,7 @@ class GaussianTransformerActor(BaseModel):
     def __init__(self, price_features, num_stocks, window_length, d_model, num_heads, num_layers):
         super().__init__()
 
-        self.common = BaseTransformer(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
+        self.common = BaseActionTransformer(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
 
         num_assets = num_stocks + 1
 
@@ -168,7 +190,7 @@ class TransformerCritic(BaseModel):
     def __init__(self, price_features, num_stocks, window_length, d_model, num_heads, num_layers):
         super().__init__()
 
-        self.common = BaseTransformer(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
+        self.common = BaseActionTransformer(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
 
         num_assets = num_stocks + 1
 
@@ -207,3 +229,27 @@ class DoubleTransformerCritic(BaseModel):
         q2 = self.Q2(x, w, action)
 
         return q1, q2
+
+
+class TransformerForecaster(BaseModel):
+
+    def __init__(self, price_features, num_stocks, window_length, d_model, num_heads, num_layers):
+        super().__init__()
+
+        self.base = BaseTransformer(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
+
+        self.fc1 = nn.Linear(d_model, d_model)
+        self.fc2 = nn.Linear(d_model, num_stocks)
+
+        self.dropout = nn.Dropout(0.1)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+
+        x = self.base(x)
+
+        x = self.dropout(self.relu(self.fc1(x)))
+
+        x = self.fc2(x)
+
+        return x.squeeze(0)
