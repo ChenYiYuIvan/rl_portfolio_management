@@ -16,21 +16,14 @@ from src.utils.torch_utils import FLOAT, USE_CUDA
 from src.utils.data_utils import EPS
 
 
-def train(model, train_data, test_data, config, wandb_inst):
+def train(model, optimizer, loss, dataloader_train, dataloader_test, config, wandb_inst):
+    wandb_inst.watch(model, loss, log_freq=config.batch_size)
     artifact = wandb.Artifact(name='forecaster', type='model', metadata=dict(config))
 
     # creating directory to store models if it doesn't exist
     if not os.path.isdir(config.save_model_path):
         os.makedirs(config.save_model_path)
 
-    dataloader_train = DataLoader(train_data, config.batch_size, shuffle=True)
-    dataloader_test = DataLoader(test_data, 1, shuffle=False)
-
-    optimizer = torch.optim.Adam(model.parameters(), config.learning_rate)
-
-    loss = torch.nn.MSELoss()
-
-    wandb_inst.watch(model, loss)
     scaler = amp.GradScaler()
 
     step = 0
@@ -95,7 +88,7 @@ def eval(model, loss, dataloader_test):
 
     return np.mean(loss_test_mean)
 
-def plot_result(model, market, agent):
+def plot_result(model, market, agent, value):
 
     device = torch.device("cuda:0" if USE_CUDA else "cpu")
     model.eval()
@@ -125,17 +118,25 @@ def plot_result(model, market, agent):
         if agent.preprocess == 'log_return':
             pred_price = (truth_vec[-1] + EPS) * np.exp(pred) - EPS
             true_price = (truth_vec[-1] + EPS) * np.exp(truth) - EPS
+        elif agent.preprocess == 'simple_return':
+            pred_price = truth_vec[-1] * (pred + 1)
+            true_price = truth_vec[-1] * (truth + 1)
         elif agent.preprocess == 'minmax':
             close_values = next_obs[1:,:,3]
             max_val = np.max(close_values, axis=1)
             min_val = np.min(close_values, axis=1)
 
-            pred_price = pred * (max_val - min_val) + min_val
-            true_price = truth * (max_val - min_val) + min_val
-            #print(true_price, next_obs[1:,-1,3])
+            pred_price = pred * (max_val - min_val + EPS) + min_val
+            true_price = truth * (max_val - min_val + EPS) + min_val
 
-        pred_vec.append(pred_price)
-        truth_vec.append(true_price)
+        #assert true_price == next_obs[1:,-1,3]
+
+        if value:
+            pred_vec.append(pred_price)
+            truth_vec.append(true_price)
+        else:
+            pred_vec.append(pred)
+            truth_vec.append(truth)
 
     fig, arr = plt.subplots(len(market.stock_names[1:]), 1, squeeze=False)
     for i, stock in enumerate(market.stock_names[1:]):
@@ -158,19 +159,20 @@ def main():
         'seed': 42,
         'env_train': 'experiments/env_train_1',
         'env_test': 'experiments/env_test_1',
-        'agent': 'experiments/sac_9',
+        'agent': 'experiments/sac_8',
         'batch_size': 64,
-        'num_epochs': 100,
-        'learning_rate': 1e-3,
-        'eval_steps': 1,
+        'num_epochs': 10000,
+        'learning_rate': 1e-4,
+        'eval_steps': 10,
         'num_price_features': 4,
-        'window_length': 50,
+        'window_length': 49,
         'num_stocks': 1,
         'd_model': 64,
         'num_heads': 8,
         'num_layers': 3,
-        'save_model_path': './checkpoints_forecaster/minmax',
+        'save_model_path': './checkpoints_forecaster/log_return',
         'model_name': 'trans_forecaster',
+        'pretrained_ep': None,
     }
 
     wandb.login()
@@ -191,13 +193,23 @@ def main():
         model = TransformerForecaster(config.num_price_features, config.num_stocks, config.window_length, config.d_model, config.num_heads, config.num_layers)
         model = model.cuda()
 
+        optimizer = torch.optim.Adam(model.parameters(), config.learning_rate)
+
         train_data = StockDataset(agent, env_train.start_date, env_train.end_date, env_train.window_length, env_train.stock_names, 'train')
         test_data = StockDataset(agent, env_test.start_date, env_test.end_date, env_test.window_length, env_test.stock_names, 'eval')
+       
+        dataloader_train = DataLoader(train_data, config.batch_size, shuffle=True)
+        dataloader_test = DataLoader(test_data, 1, shuffle=False)
 
-        train(model, train_data, test_data, config, run)
+        if config.pretrained_ep is not None:
+            model.load_state_dict(torch.load(f'{config.save_model_path}/ep{config.pretrained_ep}_trans_forecaster.pth'))
+
+        loss = torch.nn.MSELoss()
+
+        train(model, optimizer, loss, dataloader_train, dataloader_test, config, run)
         
-        model.load_state_dict(torch.load('./checkpoints_forecaster/minmax/ep99_trans_forecaster.pth'))
-        plot_result(model, env_train.market, agent)
+        #model.load_state_dict(torch.load(f'{config.save_model_path}/ep699_trans_forecaster.pth'))
+        plot_result(model, env_test.market, agent, value=False)
 
 
 if __name__ == '__main__':

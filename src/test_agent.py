@@ -33,9 +33,9 @@ def main():
     #td3.load_models(35)
     #agents_list.append(td3)
 
-    sac_config = read_yaml_config('experiments/sac_7')
+    sac_config = read_yaml_config('experiments/sac_9')
     sac = SACAgent('sac', env, seed, sac_config)
-    sac.load_models(43)
+    sac.load_models(15)
     agents_list.append(sac)
 
     crp = CRPAgent('crp', env, seed)

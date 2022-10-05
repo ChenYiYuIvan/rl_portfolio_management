@@ -6,6 +6,7 @@ checkpoints*
 data/
 *.pth
 *.ipynb
+*.pdf
 config/experiments
 
 # Byte-compiled / optimized / DLL files

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from empyrical import simple_returns, sharpe_ratio, sortino_ratio, max_drawdown, value_at_risk, conditional_value_at_risk
 
 
-EPS = 1e-8
+EPS = 1e-12
 
 
 def plot_stocks_info(env, num_cols=4, print_metrics=True, plot_log=True):
@@ -86,7 +86,7 @@ def prices_to_range(prices):
     minimum = np.min(prices, axis=1)[:,None,:]
     maximum = np.max(prices, axis=1)[:,None,:]
 
-    result = (prices - minimum) / (maximum - minimum)
+    result = (prices - minimum) / (maximum - minimum + EPS)
     return result
     
 

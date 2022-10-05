@@ -7,7 +7,7 @@ from src.agents.base_agent import BaseAgent
 
 from src.utils.file_utils import get_checkpoint_folder
 from src.utils.torch_utils import USE_CUDA
-from src.utils.data_utils import cnn_rnn_transpose, prices_to_logreturns, prices_to_norm, remove_not_used, rnn_transpose, cnn_transpose, prices_to_range
+from src.utils.data_utils import cnn_rnn_transpose, prices_to_logreturns, prices_to_norm, prices_to_simplereturns, remove_not_used, rnn_transpose, cnn_transpose, prices_to_range
 
 from src.models.replay_buffer import ReplayBuffer
 
@@ -275,6 +275,8 @@ class BaseACAgent(BaseAgent):
             prices = prices_to_logreturns(prices)
         elif self.preprocess == 'divide_close':
             prices = prices_to_norm(prices)
+        elif self.preprocess == 'simple_return':
+            prices = prices_to_simplereturns(prices)
         elif self.preprocess == 'minmax':
             prices = prices_to_range(prices)
 

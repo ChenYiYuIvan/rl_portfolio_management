@@ -170,7 +170,7 @@ class GaussianTransformerActor(BaseModel):
         else:
             xs = mu
 
-    # tanh squashing
+        # tanh squashing
         pi_action = torch.tanh(xs)
         
         # compute log_probability of pi_action

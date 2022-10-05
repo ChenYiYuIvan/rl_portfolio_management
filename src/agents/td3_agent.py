@@ -5,7 +5,7 @@ from torch.cuda import amp
 
 from src.utils.torch_utils import FLOAT, USE_CUDA
 
-from agents.ddpg_agent import DDPGAgent
+from src.agents.ddpg_agent import DDPGAgent
 
 from src.models.msm_models import DeterministicMSMActor, DoubleMSMCritic
 from src.models.transformer_model import DeterministicTransformerActor, DoubleTransformerCritic
