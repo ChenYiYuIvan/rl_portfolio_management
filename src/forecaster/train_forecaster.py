@@ -9,6 +9,7 @@ import wandb
 
 from src.forecaster.data_loader import StockDataset
 from src.models.transformer_model import TransformerForecaster
+from src.models.transformer_shared_model import TransformerSharedForecaster
 from src.utils.file_utils import read_yaml_config
 from src.agents.sac_agent import SACAgent
 from src.environments.portfolio import Portfolio
@@ -27,7 +28,7 @@ def train(model, optimizer, loss, dataloader_train, dataloader_test, config, wan
     scaler = amp.GradScaler()
 
     step = 0
-    for epoch in range(config.num_epochs):
+    for epoch in range(config.checkpoint_ep + 1, config.num_epochs):
         
         model.train()
         tq = tqdm(total=len(dataloader_train) * config.batch_size)
@@ -141,15 +142,15 @@ def plot_result(model, market, agent, value):
     fig, arr = plt.subplots(len(market.stock_names[1:]), 1, squeeze=False)
     for i, stock in enumerate(market.stock_names[1:]):
         predictions = [el[i] for el in pred_vec]
-        arr[i,0].plot(predictions)
-
         truths = [el[i] for el in truth_vec]
-        arr[i,0].plot(truths)
+
+        arr[i,0].plot(truths[1:])
+        arr[i,0].plot(predictions[1:])
 
         arr[i,0].title.set_text(stock)
         #print(f'{stock} - pred: {np.mean(predictions)}, truth: {np.mean(truths)}')
 
-    plt.legend(['pred', 'truth'])
+    plt.legend(['truth', 'pred'])
     plt.show()
 
 
@@ -160,6 +161,7 @@ def main():
         'env_train': 'experiments/env_train_1',
         'env_test': 'experiments/env_test_1',
         'agent': 'experiments/sac_8',
+        'model': 'transformer_shared', # transformed / transformed_shared
         'batch_size': 64,
         'num_epochs': 10000,
         'learning_rate': 1e-4,
@@ -170,16 +172,16 @@ def main():
         'd_model': 64,
         'num_heads': 8,
         'num_layers': 3,
-        'save_model_path': './checkpoints_forecaster/log_return',
+        'save_model_path': './checkpoints_forecaster/trans_shared_log_return',
         'model_name': 'trans_forecaster',
-        'pretrained_ep': None,
+        'checkpoint_ep': 0,
     }
 
     wandb.login()
     with wandb.init(project="forecasting", entity="mldlproj1gr2", config=config, mode="online") as run:
         config = wandb.config
 
-        seed = 42
+        seed = config.seed
 
         env_config_train = read_yaml_config(config.env_train)
         env_train = Portfolio(env_config_train)
@@ -190,7 +192,10 @@ def main():
         agent_config = read_yaml_config(config.agent)
         agent = SACAgent('sac', env_train, seed, agent_config)
 
-        model = TransformerForecaster(config.num_price_features, config.num_stocks, config.window_length, config.d_model, config.num_heads, config.num_layers)
+        if config.model == 'transformer':
+            model = TransformerForecaster(config.num_price_features, config.num_stocks, config.window_length, config.d_model, config.num_heads, config.num_layers)
+        elif config.model == 'transformer_shared':
+            model = TransformerSharedForecaster(config.num_price_features, config.num_stocks, config.window_length, config.d_model, config.num_heads, config.num_layers)
         model = model.cuda()
 
         optimizer = torch.optim.Adam(model.parameters(), config.learning_rate)
@@ -201,15 +206,15 @@ def main():
         dataloader_train = DataLoader(train_data, config.batch_size, shuffle=True)
         dataloader_test = DataLoader(test_data, 1, shuffle=False)
 
-        if config.pretrained_ep is not None:
-            model.load_state_dict(torch.load(f'{config.save_model_path}/ep{config.pretrained_ep}_trans_forecaster.pth'))
+        if config.checkpoint_ep > 0:
+            model.load_state_dict(torch.load(f'{config.save_model_path}/ep{config.checkpoint_ep}_trans_forecaster.pth'))
 
         loss = torch.nn.MSELoss()
 
         train(model, optimizer, loss, dataloader_train, dataloader_test, config, run)
         
-        #model.load_state_dict(torch.load(f'{config.save_model_path}/ep699_trans_forecaster.pth'))
-        plot_result(model, env_test.market, agent, value=False)
+        #model.load_state_dict(torch.load(f'{config.save_model_path}/ep9_trans_forecaster.pth'))
+        plot_result(model, env_train.market, agent, value=False)
 
 
 if __name__ == '__main__':
