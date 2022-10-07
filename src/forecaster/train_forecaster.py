@@ -106,7 +106,7 @@ def plot_result(model, market, agent, value):
         (next_obs_p, _) = agent.preprocess_data((next_obs, None))
 
         obs = torch.tensor(curr_obs_p, dtype=FLOAT, device=device)
-        truth = next_obs_p[-1,:,2]
+        truth = next_obs_p[-1,1:,2]
 
         pred = model(obs)
         if USE_CUDA:
@@ -160,11 +160,12 @@ def main():
         'seed': 42,
         'env_train': 'experiments/env_train_1',
         'env_test': 'experiments/env_test_1',
-        'agent': 'experiments/sac_8',
+        'agent': 'experiments/sac_11',
         'model': 'transformer_shared', # transformed / transformed_shared
         'batch_size': 64,
         'num_epochs': 10000,
         'learning_rate': 1e-4,
+        'weight_decay': 1e-2,
         'eval_steps': 10,
         'num_price_features': 4,
         'window_length': 49,
@@ -198,7 +199,7 @@ def main():
             model = TransformerSharedForecaster(config.num_price_features, config.num_stocks, config.window_length, config.d_model, config.num_heads, config.num_layers)
         model = model.cuda()
 
-        optimizer = torch.optim.Adam(model.parameters(), config.learning_rate)
+        optimizer = torch.optim.Adam(model.parameters(), config.learning_rate, weight_decay=config.weight_decay)
 
         train_data = StockDataset(agent, env_train.start_date, env_train.end_date, env_train.window_length, env_train.stock_names, 'train')
         test_data = StockDataset(agent, env_test.start_date, env_test.end_date, env_test.window_length, env_test.stock_names, 'eval')

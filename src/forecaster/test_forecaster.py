@@ -33,7 +33,7 @@ def main():
         'seed': 42,
         'env_train': 'experiments/env_train_1',
         'env_test': 'experiments/env_test_1',
-        'agent': 'experiments/sac_8',
+        'agent': 'experiments/sac_11',
         'model': 'transformer_shared', # transformed / transformed_shared
         'num_price_features': 4,
         'window_length': 49,
@@ -43,7 +43,7 @@ def main():
         'num_layers': 3,
         'save_model_path': './checkpoints_forecaster/trans_shared_log_return',
         'model_name': 'trans_forecaster',
-        'episode': 399,
+        'episode': 339,
     }
     
     config = Dict2Class(config)
@@ -64,6 +64,7 @@ def main():
     elif config.model == 'transformer_shared':
         model = TransformerSharedForecaster(config.num_price_features, config.num_stocks, config.window_length, config.d_model, config.num_heads, config.num_layers)
     model = model.cuda()
+    model.eval()
 
     model.load_state_dict(torch.load(f'{config.save_model_path}/ep{config.episode}_{config.model_name}.pth'))
     plot_result(model, env_train.market, agent, value=False)

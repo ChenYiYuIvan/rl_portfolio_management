@@ -36,6 +36,6 @@ class StockDataset(Dataset):
         (next_obs, _) = self.agent.preprocess_data((next_obs, None))
 
         obs = torch.tensor(curr_obs, dtype=FLOAT, device=self.device)
-        truth = torch.tensor(next_obs[-1,:,2], dtype=FLOAT, device=self.device)
+        truth = torch.tensor(next_obs[-1,1:,2], dtype=FLOAT, device=self.device)
 
         return obs, truth

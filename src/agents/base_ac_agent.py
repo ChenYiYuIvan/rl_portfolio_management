@@ -25,7 +25,7 @@ class BaseACAgent(BaseAgent):
         super().__init__(name, env, seed, args.reward_type)
 
         # network type
-        assert args.network_type in ('cnn', 'lstm', 'gru', 'cnn_gru', 'msm', 'trans')
+        assert args.network_type in ('cnn', 'lstm', 'gru', 'cnn_gru', 'msm', 'trans', 'trans_shared')
         self.network_type = args.network_type
 
         self.preprocess = args.preprocess
@@ -282,12 +282,14 @@ class BaseACAgent(BaseAgent):
 
         if self.network_type == 'trans':
             prices = remove_not_used(prices, volume=False)
+        elif self.network_type == 'trans_shared':
+            prices = remove_not_used(prices, cash=False, volume=False)
         else:
             prices = remove_not_used(prices)
 
         if self.network_type == 'cnn' or self.network_type == 'msm':
             prices = cnn_transpose(prices)
-        elif self.network_type == 'trans' or self.network_type == 'lstm' or self.network_type == 'gru':
+        elif self.network_type == 'trans' or self.network_type == 'trans_shared' or self.network_type == 'lstm' or self.network_type == 'gru':
             prices = rnn_transpose(prices)
         elif self.network_type == 'cnn_gru':
             prices = cnn_rnn_transpose(prices)

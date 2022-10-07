@@ -24,31 +24,32 @@ def main():
 
     #ddpg_config = read_yaml_config('experiments/ddpg_8')
     #ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
-    #ddpg.load_models(0)
-    ##ddpg.load_actor_from_path('./checkpoints_pretrained/msm_real_7_49/real_epoch99.pth')
-    #agents_list.append(ddpg)
+    # ddpg.load_models(0)
+    # ddpg.load_actor_from_path('./checkpoints_pretrained/msm_real_7_49/real_epoch99.pth')
+    # agents_list.append(ddpg)
 
     #td3_config = read_yaml_config('experiments/td3_1')
     #td3 = TD3Agent('td3', env, seed, td3_config)
-    #td3.load_models(35)
-    #agents_list.append(td3)
+    # td3.load_models(35)
+    # agents_list.append(td3)
 
-    sac_config = read_yaml_config('experiments/sac_9')
+    sac_config = read_yaml_config('experiments/sac_11')
     sac = SACAgent('sac', env, seed, sac_config)
-    sac.load_models(15)
+    sac.load_models(11)
     agents_list.append(sac)
 
     crp = CRPAgent('crp', env, seed)
     agents_list.append(crp)
 
     #mpt = MPTAgent('mpt', env, seed, 'sharpe_ratio')
-    #agents_list.append(mpt)
+    # agents_list.append(mpt)
 
     #rng = RandomAgent('rng', env, seed)
-    #agents_list.append(rng)
+    # agents_list.append(rng)
 
     evaluator = AgentsEvaluator(env, agents_list)
-    evaluator.evaluate_all(num_cols=4, exploration=False, plot_stocks=True, plot_log=False)
+    evaluator.evaluate_all(num_cols=4, exploration=False,
+                           plot_stocks=True, plot_log=False)
 
 
 if __name__ == '__main__':

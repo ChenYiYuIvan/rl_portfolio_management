@@ -1,11 +1,7 @@
-from turtle import forward
 import torch
 from torch import nn
-from torch.distributions.normal import Normal
 from src.models.base_models import BaseModel
-from src.utils.data_utils import EPS
 from src.models.transformer_model import PositionalEncoder, DeterministicTransformerActor, GaussianTransformerActor, TransformerCritic, DoubleTransformerCritic, TransformerForecaster
-import math
 
 
 class BaseTransformerShared(BaseModel):
@@ -56,7 +52,7 @@ class BaseActionTransformerShared(BaseModel):
 
         self.base = BaseTransformerShared(price_features, window_length, d_model, num_heads, num_layers)
 
-        self.base_fc = nn.Linear(num_stocks, d_model)
+        self.base_fc = nn.Linear(num_assets, d_model)
 
         self.weights_fc = nn.Linear(num_assets, d_model)
 
@@ -69,19 +65,16 @@ class BaseActionTransformerShared(BaseModel):
     def forward(self, x, w):
 
         if len(x.shape) == 3:
-            x = x[None,:,:,:]
+            x_stocks = x[None,:,:,:]
             w = w[None,:]
-        # shape = [batch, window_length, num_stocks, price_features]
+        else:
+            x_stocks = x
+        # shape = [batch, window_length, num_assets, price_features]
 
-        x_stocks = []
-        for stock in range(x.shape[2]):
-            # shape = [batch, window_length, price_features]
-            x_stock = self.base(x[:,:,stock,:])
-            # shape = [batch, 1]
-
-            x_stocks.append(x_stock)
-        x = torch.cat(x_stocks, dim=1)
-        # shape = [batch, num_stocks]
+        x = torch.empty((x_stocks.shape[0], x_stocks.shape[2]), device=x_stocks.device)
+        for stock in range(x_stocks.shape[2]):
+            x[:,stock] = self.base(x_stocks[:,:,stock,:]).squeeze(1)
+        # shape = [batch, num_assets]
 
         x = self.dropout(self.leaky_relu(self.base_fc(x)))
         w = self.dropout(self.leaky_relu(self.weights_fc(w)))
@@ -113,7 +106,7 @@ class GaussianTransformerSharedActor(GaussianTransformerActor):
 class TransformerSharedCritic(TransformerCritic):
 
     def __init__(self, price_features, num_stocks, window_length, d_model, num_heads, num_layers):
-        super().__init__()
+        super().__init__(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
 
         self.common = BaseActionTransformerShared(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
 
@@ -121,7 +114,7 @@ class TransformerSharedCritic(TransformerCritic):
 class DoubleTransformerSharedCritic(DoubleTransformerCritic):
 
     def __init__(self, price_features, num_stocks, window_length, d_model, num_heads, num_layers):
-        super().__init__()
+        super().__init__(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
 
         self.Q1 = TransformerSharedCritic(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
         self.Q2 = TransformerSharedCritic(price_features, num_stocks, window_length, d_model, num_heads, num_layers)
@@ -132,9 +125,11 @@ class TransformerSharedForecaster(BaseModel):
     def __init__(self, price_features, num_stocks, window_length, d_model, num_heads, num_layers):
         super().__init__()
 
+        num_assets = num_stocks + 1
+
         self.base = BaseTransformerShared(price_features, window_length, d_model, num_heads, num_layers)
 
-        self.fc1 = nn.Linear(num_stocks, d_model)
+        self.fc1 = nn.Linear(num_assets, d_model)
         self.fc2 = nn.Linear(d_model, num_stocks)
 
         self.dropout = nn.Dropout(0.1)
