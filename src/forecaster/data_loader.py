@@ -14,7 +14,7 @@ class StockDataset(Dataset):
 
         # parameters
         self.window_length = window_length
-        self.stock_names = stock_names
+        self.stock_names = stock_names[1:]
 
         # market environment
         self.env = Market(start_date, end_date, window_length, stock_names)

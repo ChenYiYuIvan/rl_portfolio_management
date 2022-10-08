@@ -1,4 +1,5 @@
 # default config for portfolio environment for training
+name: env_small
 
 start_date: "2007-01-01"
 end_date: "2016-12-31"
