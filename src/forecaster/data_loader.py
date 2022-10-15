@@ -17,7 +17,7 @@ class StockDataset(Dataset):
         self.stock_names = stock_names[1:]
 
         # market environment
-        self.env = Market(start_date, end_date, window_length, stock_names)
+        self.market = Market(start_date, end_date, window_length, self.stock_names)
 
         # rl agent - for preprocessing
         self.agent = agent
@@ -26,16 +26,16 @@ class StockDataset(Dataset):
         self.mode = mode
 
     def __len__(self):
-        return self.env.tot_steps
+        return self.market.tot_steps
 
     def __getitem__(self, idx):
-        self.env.next_step = idx
-        curr_obs, next_obs, _ = self.env.step()
+        self.market.next_step = idx
+        curr_obs, next_obs, _ = self.market.step()
 
         (curr_obs, _) = self.agent.preprocess_data((curr_obs, None))
         (next_obs, _) = self.agent.preprocess_data((next_obs, None))
 
         obs = torch.tensor(curr_obs, dtype=FLOAT, device=self.device)
-        truth = torch.tensor(next_obs[-1,1:,2], dtype=FLOAT, device=self.device)
+        truth = torch.tensor(next_obs[1:,-1,2], dtype=FLOAT, device=self.device)
 
         return obs, truth

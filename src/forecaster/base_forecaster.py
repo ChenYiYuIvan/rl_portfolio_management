@@ -19,7 +19,6 @@ class BaseForecaster:
 
         num_train = pred_vec_train.shape[0]
         num_test = pred_vec_test.shape[0]
-        print(num_train, num_test)
 
         mse_train = self._calculate_mse(pred_vec_train, truth_vec_train)
         mse_test = self._calculate_mse(pred_vec_test, truth_vec_test)

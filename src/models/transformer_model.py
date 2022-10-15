@@ -51,8 +51,6 @@ class BaseTransformer(BaseModel):
         self.encoder_conv = nn.Conv1d(d_model, 1, kernel_size=1)
         self.encoder_fc = nn.Linear(window_length, d_model)
 
-        self.dropout = nn.Dropout(0.1)
-
         self.relu = nn.ReLU()
 
     def forward(self, x):
@@ -64,7 +62,7 @@ class BaseTransformer(BaseModel):
         x = torch.flatten(x, 2)
         # shape = [batch, window_length, num_stocks * price_features]
 
-        x = self.dropout(self.relu(self.input_fc(x)))
+        x = self.relu(self.input_fc(x))
         # shape = [batch, window_length, d_model]
 
         x = self.positional_encoder(x)
@@ -79,7 +77,7 @@ class BaseTransformer(BaseModel):
         x = self.encoder_conv(x).squeeze(1)
         # shape = [batch, window_length]
 
-        x = self.dropout(self.relu(self.encoder_fc(x)))
+        x = self.relu(self.encoder_fc(x))
         # shape = [batch, d_model]
 
         return x
@@ -98,8 +96,6 @@ class BaseActionTransformer(BaseModel):
 
         self.fc = nn.Linear(2*d_model, d_model)
 
-        self.dropout = nn.Dropout(0.1)
-
         self.relu = nn.ReLU()
 
     def forward(self, x, w):
@@ -109,11 +105,11 @@ class BaseActionTransformer(BaseModel):
 
         x = self.base(x)
 
-        w = self.dropout(self.relu(self.weights_fc(w)))
+        w = self.relu(self.weights_fc(w))
         x = torch.cat((x, w), dim=-1)
         # shape = [batch, 2*d_model]
         
-        x = self.dropout(self.relu(self.fc(x)))
+        x = self.relu(self.fc(x))
         # shape = [batch, d_model]
 
         return x
@@ -241,14 +237,13 @@ class TransformerForecaster(BaseModel):
         self.fc1 = nn.Linear(d_model, d_model)
         self.fc2 = nn.Linear(d_model, num_stocks)
 
-        self.dropout = nn.Dropout(0.1)
         self.relu = nn.ReLU()
 
     def forward(self, x):
 
         x = self.base(x)
 
-        x = self.dropout(self.relu(self.fc1(x)))
+        x = self.relu(self.fc1(x))
 
         x = self.fc2(x)
 

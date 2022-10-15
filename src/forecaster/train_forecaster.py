@@ -39,7 +39,7 @@ def main(method):
             'agent': 'experiments/sac_11',
             'model': 'transformer_shared', # transformed / transformed_shared
             'batch_size': 64,
-            'num_epochs': 10000,
+            'num_epochs': 1000,
             'learning_rate': 1e-4,
             'weight_decay': 1e-2,
             'eval_steps': 10,
@@ -76,5 +76,5 @@ def main(method):
 
 if __name__ == '__main__':
 
-    main('varma')
-    #main('sac')
+    #main('varma')
+    main('sac')

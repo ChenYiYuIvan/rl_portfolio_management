@@ -18,14 +18,12 @@ class BaseTransformerShared(BaseModel):
         self.encoder_fc1 = nn.Linear(d_model, 1)
         self.encoder_fc2 = nn.Linear(window_length, 1)
 
-        self.dropout = nn.Dropout(0.1)
-
         self.leaky_relu = nn.LeakyReLU(0.1)
 
     def forward(self, x):
         # shape = [batch, window_length, price_features]
 
-        x = self.dropout(self.leaky_relu(self.input_fc(x)))
+        x = self.leaky_relu(self.input_fc(x))
         # shape = [batch, window_length, d_model]
 
         x = self.positional_encoder(x)
@@ -34,10 +32,10 @@ class BaseTransformerShared(BaseModel):
         x = self.encoder(x)
         # shape = [batch, window_length, d_model]
 
-        x = self.dropout(self.leaky_relu(self.encoder_fc1(x))).squeeze(2)
+        x = self.leaky_relu(self.encoder_fc1(x)).squeeze(2)
         # shape = [batch, window_length]
 
-        x = self.dropout(self.leaky_relu(self.encoder_fc2(x)))
+        x = self.leaky_relu(self.encoder_fc2(x))
         # shape = [batch, 1]
 
         return x
@@ -57,8 +55,6 @@ class BaseActionTransformerShared(BaseModel):
         self.weights_fc = nn.Linear(num_assets, d_model)
 
         self.fc = nn.Linear(2*d_model, d_model)
-
-        self.dropout = nn.Dropout(0.1)
 
         self.leaky_relu = nn.LeakyReLU(0.1)
 
@@ -80,12 +76,12 @@ class BaseActionTransformerShared(BaseModel):
         x = torch.reshape(x, (batch_size, num_assets))
         # shape = [batch, num_assets]
 
-        x = self.dropout(self.leaky_relu(self.base_fc(x)))
-        w = self.dropout(self.leaky_relu(self.weights_fc(w)))
+        x = self.leaky_relu(self.base_fc(x))
+        w = self.leaky_relu(self.weights_fc(w))
         x = torch.cat((x, w), dim=-1)
         # shape = [batch, 2*d_model]
         
-        x = self.dropout(self.leaky_relu(self.fc(x)))
+        x = self.leaky_relu(self.fc(x))
         # shape = [batch, d_model]
 
         return x
@@ -136,14 +132,13 @@ class TransformerSharedForecaster(BaseModel):
         self.fc1 = nn.Linear(num_assets, d_model)
         self.fc2 = nn.Linear(d_model, num_stocks)
 
-        self.dropout = nn.Dropout(0.1)
         self.leaky_relu = nn.LeakyReLU(0.1)
 
     def forward(self, x):
 
         if len(x.shape) == 3:
             x = x[None,:,:,:]
-        # shape = [batch, window_length, num_stocks, price_features]
+        # shape = [batch, window_length, num_assets, price_features]
 
         batch_size = x.shape[0]
         num_assets = x.shape[1]
@@ -156,7 +151,7 @@ class TransformerSharedForecaster(BaseModel):
         x = torch.reshape(x, (batch_size, num_assets))
         # shape = [batch, num_assets]
 
-        x = self.dropout(self.leaky_relu(self.fc1(x)))
+        x = self.leaky_relu(self.fc1(x))
 
         x = self.fc2(x)
 
