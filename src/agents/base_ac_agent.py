@@ -287,12 +287,12 @@ class BaseACAgent(BaseAgent):
         else:
             prices = remove_not_used(prices)
 
-        if self.network_type == 'cnn' or self.network_type == 'msm':
-            prices = cnn_transpose(prices)
-        elif self.network_type == 'trans' or self.network_type == 'trans_shared' or self.network_type == 'lstm' or self.network_type == 'gru':
-            prices = rnn_transpose(prices)
-        elif self.network_type == 'cnn_gru':
-            prices = cnn_rnn_transpose(prices)
+        #if self.network_type == 'cnn' or self.network_type == 'msm':
+        #    prices = cnn_transpose(prices)
+        #elif self.network_type == 'trans' or self.network_type == 'trans_shared' or self.network_type == 'lstm' or self.network_type == 'gru':
+        #    prices = rnn_transpose(prices)
+        #elif self.network_type == 'cnn_gru':
+        #    prices = cnn_rnn_transpose(prices)
 
         return (prices, weights)
 

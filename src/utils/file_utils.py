@@ -22,3 +22,11 @@ def read_yaml_config(file_name):
 def get_checkpoint_folder(agent_name, env_name):
     folder = f'./checkpoints/{agent_name}_{env_name}'
     return folder
+
+
+class Dict2Class(object):
+    # Turns a dictionary into a class
+    def __init__(self, my_dict):
+          
+        for key in my_dict:
+            setattr(self, key, my_dict[key])

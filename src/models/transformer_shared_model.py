@@ -65,15 +65,19 @@ class BaseActionTransformerShared(BaseModel):
     def forward(self, x, w):
 
         if len(x.shape) == 3:
-            x_stocks = x[None,:,:,:]
+            x = x[None,:,:,:]
             w = w[None,:]
-        else:
-            x_stocks = x
-        # shape = [batch, window_length, num_assets, price_features]
+        # shape = [batch, num_assets, window_length, price_features]
 
-        x = torch.empty((x_stocks.shape[0], x_stocks.shape[2]), device=x_stocks.device)
-        for stock in range(x_stocks.shape[2]):
-            x[:,stock] = self.base(x_stocks[:,:,stock,:]).squeeze(1)
+        batch_size = x.shape[0]
+        num_assets = x.shape[1]
+        x = torch.reshape(x, (batch_size*num_assets, x.shape[2], x.shape[3]))
+        # shape = [batch * num_assets, window_length, price_features]
+
+        x = self.base(x)
+        # shape = [batch * num_assets]
+
+        x = torch.reshape(x, (batch_size, num_assets))
         # shape = [batch, num_assets]
 
         x = self.dropout(self.leaky_relu(self.base_fc(x)))
@@ -141,15 +145,16 @@ class TransformerSharedForecaster(BaseModel):
             x = x[None,:,:,:]
         # shape = [batch, window_length, num_stocks, price_features]
 
-        x_stocks = []
-        for stock in range(x.shape[2]):
-            # shape = [batch, window_length, price_features]
-            x_stock = self.base(x[:,:,stock,:])
-            # shape = [batch, 1]
+        batch_size = x.shape[0]
+        num_assets = x.shape[1]
+        x = torch.reshape(x, (batch_size*num_assets, x.shape[2], x.shape[3]))
+        # shape = [batch * num_assets, window_length, price_features]
 
-            x_stocks.append(x_stock)
-        x = torch.cat(x_stocks, dim=1)
-        # shape = [batch, num_stocks]
+        x = self.base(x)
+        # shape = [batch * num_assets]
+
+        x = torch.reshape(x, (batch_size, num_assets))
+        # shape = [batch, num_assets]
 
         x = self.dropout(self.leaky_relu(self.fc1(x)))
 

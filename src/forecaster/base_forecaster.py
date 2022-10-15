@@ -11,11 +11,12 @@ class BaseForecaster:
 
         # market environments
         self.market_train = market_train
+        self.model = None
 
     def _forecast(self, obs):
         raise NotImplementedError
 
-    def forecast_all(self, market):
+    def forecast_all(self, market, render=False):
 
         curr_obs = market.reset()
 
@@ -36,23 +37,61 @@ class BaseForecaster:
             truth_price_vec.append(truth_price)
             truth_vec.append(truth)
 
-        fig, arr = plt.subplots(len(market.stock_names[1:]), 2, squeeze=False)
-        for i, stock in enumerate(market.stock_names[1:]):
+        # mse
+        pred_vec = np.array(pred_vec)
+        truth_vec = np.array(truth_vec)
+        mse = ((pred_vec - truth_vec)**2).mean()
+
+        if render:
+            # plot prediction vs actual values
+            fig, arr = plt.subplots(len(market.stock_names[1:]), 2, squeeze=False)
+            for i, stock in enumerate(market.stock_names[1:]):
+
+                predictions = [el[i] for el in pred_vec]
+                truths = [el[i] for el in truth_vec]
+                arr[i,0].plot(truths)
+                arr[i,0].plot(predictions)
+                arr[i,0].title.set_text(f'{stock} - {self.preprocess}')
+
+                predictions_price = [el[i] for el in pred_price_vec]
+                truths_price = [el[i] for el in truth_price_vec]
+                arr[i,1].plot(truths_price[1:])
+                arr[i,1].plot(predictions_price[1:])
+                arr[i,1].title.set_text(f'{stock} - price')
+
+            fig.legend(['truth', 'pred'])
+            plt.show()
+
+        return mse
+
+    def plot_all(self, pred_vec_train, truth_vec_train, pred_vec_test, truth_vec_test):
+
+        num_train = pred_vec_train.shape[0]
+        num_test = pred_vec_test.shape[0]
+
+        mse_train = self._calculate_mse(pred_vec_train, truth_vec_train)
+        mse_test = self._calculate_mse(pred_vec_test, truth_vec_test)
+
+        pred_vec = np.concatenate((pred_vec_train, pred_vec_test), axis=0)
+        truth_vec = np.concatenate((truth_vec_train, truth_vec_test), axis=0)
+        fig, arr = plt.subplots(len(self.market_train.stock_names[1:]), 1, squeeze=False)
+        for i, stock in enumerate(self.market_train.stock_names[1:]):
 
             predictions = [el[i] for el in pred_vec]
             truths = [el[i] for el in truth_vec]
             arr[i,0].plot(truths)
             arr[i,0].plot(predictions)
-            arr[i,0].title.set_text(f'{stock} - {self.preprocess}')
 
-            predictions_price = [el[i] for el in pred_price_vec]
-            truths_price = [el[i] for el in truth_price_vec]
-            arr[i,1].plot(truths_price[1:])
-            arr[i,1].plot(predictions_price[1:])
-            arr[i,1].title.set_text(f'{stock} - price')
+            arr[i,0].axvspan(0, num_train, facecolor='b', alpha=0.3)
+            arr[i,0].axvspan(num_train, num_train+num_test, facecolor='r', alpha=0.3)
+            arr[i,0].title.set_text(f'{stock}')
 
+        fig.suptitle(f'{self.preprocess} - mse_train = {mse_train:.6f} - mse_test = {mse_test:.6f}')
         fig.legend(['truth', 'pred'])
         plt.show()
+
+    def _calculate_mse(self, pred_vec, truth_vec):
+        return np.mean((pred_vec - truth_vec)**2)
 
     def _price_from_value(self, value, past_price, close_prices):
         

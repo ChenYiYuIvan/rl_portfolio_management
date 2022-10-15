@@ -42,9 +42,9 @@ class NNForecaster(BaseForecaster):
 
         return pred
 
-    def forecast_all(self, market):
+    def forecast_all(self, market, render=False):
         self.model.eval()
-        super().forecast_all(market)
+        return super().forecast_all(market, render)
 
     def load_model(self, model_path):
         self.model.load_state_dict(torch.load(model_path))

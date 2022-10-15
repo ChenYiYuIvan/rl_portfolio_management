@@ -35,7 +35,7 @@ def main():
 
     sac_config = read_yaml_config('experiments/sac_11')
     sac = SACAgent('sac', env, seed, sac_config)
-    sac.load_models(51)
+    sac.load_models(88)
     agents_list.append(sac)
 
     crp = CRPAgent('crp', env, seed)
