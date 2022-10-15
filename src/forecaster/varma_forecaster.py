@@ -1,8 +1,6 @@
 from src.forecaster.base_forecaster import BaseForecaster
-from src.utils.data_utils import prices_to_logreturns
 from statsmodels.tsa.statespace.varmax import VARMAX
 from src.utils.data_utils import EPS
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import os
@@ -16,6 +14,31 @@ class VARMAForecaster(BaseForecaster):
 
         # from previous tests: only high prices granger-cause close prices
         self.data = self._process_data(market_test)
+
+    def _forecast(self, step):
+        obj_cols = [f'{stock}_close' for stock in self.market_train.stock_names[1:]]
+        return self.model.predict(step, step)[obj_cols].values[0]
+
+    def fit_test_model_given_par(self, p, q, render=False):
+        # fit model on train data, test both in and out of sample and plot results
+        # equivalent to forecast_all method of nn_forecaster
+        data_train = self.data[:self.id_sep]
+        data_test = self.data[self.id_sep:]
+
+        self.model = self._fit_model(data_train, p, q)
+
+        obj_cols = [f'{stock}_close' for stock in self.market_train.stock_names[1:]]
+
+        pred_vec_train = self.model.predict()[obj_cols].values
+        truth_vec_train = data_train[obj_cols].values
+        mse_train = self._calculate_mse(pred_vec_train, truth_vec_train)
+
+        mse_test, pred_vec_test, truth_vec_test, self.model = self._eval(self.model, data_test)
+
+        if render:
+            self.plot_all(pred_vec_train, truth_vec_train, pred_vec_test, truth_vec_test)
+
+        return mse_train, mse_test
 
     def train(self, save_path, maxlag=5, numfolds=5):
         import warnings
@@ -31,10 +54,8 @@ class VARMAForecaster(BaseForecaster):
 
         # create train-val-test splits for cross-validation
         data_train = self.data[:self.id_sep]
-        data_test = self.data[self.id_sep:]
         k, m = divmod(data_train.shape[0], numfolds)
-        #splits = [data_train[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(numfolds)]
-        splits = [(i+1)*k+min(i+1, m) for i in range(5)]
+        splits = [(i+1)*k+min(i+1, m) for i in range(numfolds)]
 
         for fold in range(numfolds-1):
             split_train = data_train[0:splits[fold]]
@@ -46,41 +67,29 @@ class VARMAForecaster(BaseForecaster):
                         print(f'Currently: fold = {fold}, p = {p}, q = {q}', end=' - ')
                         model = self._fit_model(split_train, p, q)
                         print('Start val', end=' - ')
-                        mse = self._eval(model, split_test)
+                        mse, _, _, _ = self._eval(model, split_test)
                         mse_results[p,q,fold] = mse
-                        print(f'Loss = {mse}')
+                        print(f'Loss = {mse:.6f}')
 
         mse_mean = mse_results.mean(axis=-1)
 
         best_idx = mse_mean.argmax()
-        best_p = best_idx // maxlag - 1
+        best_p = best_idx // maxlag
         best_q = best_idx % maxlag
 
         print(f'Best model found: p = {best_p}, q = {best_q}')
-        self.model = self._fit_model(data_train, best_p, best_q)
-
-        # mse on train data
-        obj_cols = [f'{stock}_close' for stock in self.market_train.stock_names[1:]]
-        pred_vec_train = self.model.predict()[obj_cols].values
-        truth_vec_train = data_train[obj_cols].values
-        mse_train = self._calculate_mse(pred_vec_train, truth_vec_train)
-
-        # mse on test data
-        mse_test, pred_vec_test, truth_vec_test = self._eval(self.model, data_test)
+        mse_train, mse_test = self.fit_test_model_given_par(best_p, best_q, render=True)
+        print(f'Train loss = {mse_train} - Test loss = {mse_test}')
 
         # save model
         with open(f'{save_path}/varma_p{best_p}_q{best_q}.pkl', 'wb') as outp:
             pickle.dump(self.__dict__, outp, pickle.HIGHEST_PROTOCOL)
 
-        # plot results
-        print(f'Train loss = {mse_train} - Test loss = {mse_test}')
-        self.plot_all(pred_vec_train, truth_vec_train, pred_vec_test, truth_vec_test)
+        return mse_train, mse_test, (best_p, best_q)
 
-        return (best_p, best_q), mse_train, mse_test
-
-    def load_model(self, path):
+    def load_model(self, model_path):
         self.__dict__.clear()
-        with open(path, 'rb') as inp:
+        with open(model_path, 'rb') as inp:
             self.__dict__.update(pickle.load(inp))
 
     def _fit_model(self, data, p, q):
@@ -101,7 +110,7 @@ class VARMAForecaster(BaseForecaster):
         pred_vec = pred_vec[obj_cols].values
 
         mse = self._calculate_mse(pred_vec, truth_vec)
-        return mse, pred_vec, truth_vec
+        return mse, pred_vec, truth_vec, model_new
 
     def _process_data(self, market_test):
 

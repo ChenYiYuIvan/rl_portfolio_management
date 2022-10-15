@@ -1,5 +1,6 @@
 from src.forecaster.base_forecaster import BaseForecaster
 from src.utils.torch_utils import USE_CUDA, FLOAT
+from src.utils.data_utils import EPS
 from src.models.transformer_shared_model import TransformerSharedForecaster
 from src.forecaster.data_loader import StockDataset
 
@@ -42,9 +43,52 @@ class NNForecaster(BaseForecaster):
 
         return pred
 
-    def forecast_all(self, market, render=False):
+    def forecast_all(self, market_test, render=False):
+        # equivalent to fit_model_given_par of varma_forecaster
         self.model.eval()
-        return super().forecast_all(market, render)
+
+        # results on train
+        self.market_train.reset()
+
+        pred_vec_train, truth_vec_train = [], []
+
+        done = False
+        while not done:
+            curr_obs, next_obs, done = self.market_train.step()
+
+            pred = self._forecast(curr_obs)
+            truth = self._value_from_price(next_obs[1:,-1,3], curr_obs[1:,-1,3], next_obs[1:,:,3])
+
+            pred_vec_train.append(pred)
+            truth_vec_train.append(truth)
+
+        pred_vec_train = np.array(pred_vec_train)
+        truth_vec_train = np.array(truth_vec_train)
+        mse_train = ((pred_vec_train - truth_vec_train)**2).mean()
+
+        # results on test
+        market_test.reset()
+
+        pred_vec_test, truth_vec_test = [], []
+
+        done = False
+        while not done:
+            curr_obs, next_obs, done = market_test.step()
+
+            pred = self._forecast(curr_obs)
+            truth = self._value_from_price(next_obs[1:,-1,3], curr_obs[1:,-1,3], next_obs[1:,:,3])
+
+            pred_vec_test.append(pred)
+            truth_vec_test.append(truth)
+
+        pred_vec_test = np.array(pred_vec_test)
+        truth_vec_test = np.array(truth_vec_test)
+        mse_test = ((pred_vec_test - truth_vec_test)**2).mean()
+
+        if render:
+            self.plot_all(pred_vec_train, truth_vec_train, pred_vec_test, truth_vec_test)
+
+        return mse_train, mse_test
 
     def load_model(self, model_path):
         self.model.load_state_dict(torch.load(model_path))
@@ -118,6 +162,12 @@ class NNForecaster(BaseForecaster):
 
         wandb_inst.log_artifact(artifact)
 
+        # plot results
+        mse_train, mse_test = self.forecast_all(market_test, render=True)
+        print(f'Train loss = {mse_train} - Test loss = {mse_test}')
+
+        return mse_train, mse_test
+
     def _eval(self, loss, dataloader_test):
 
         print('start val!')
@@ -135,3 +185,16 @@ class NNForecaster(BaseForecaster):
                 loss_test_mean.append(loss_value.item())
 
         return np.mean(loss_test_mean)
+
+    def _value_from_price(self, price, past_price, close_prices):
+
+        if self.preprocess == 'log_return':
+            value = np.log(price + EPS) - np.log(past_price + EPS)
+        elif self.preprocess == 'simple_return':
+            value = np.divide(price, past_price) - 1
+        elif self.preprocess == 'minmax':
+            max_price = np.max(close_prices, axis=1)
+            min_price = np.min(close_prices, axis=1)
+            value = (price - min_price) - (max_price - min_price + EPS)
+
+        return value
