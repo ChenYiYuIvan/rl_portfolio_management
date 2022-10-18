@@ -88,7 +88,7 @@ class SACAgent(BaseACAgent):
             self.critic = DoubleTransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
             self.critic_target = DoubleTransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
 
-        elif self.network_type == 'trans_shared':
+        elif self.network_type == 'trans_shared' or self.network_type == 'lstm_shared':
             # close - high - low - volume
             num_price_features = 4
 

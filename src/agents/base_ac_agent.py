@@ -25,10 +25,24 @@ class BaseACAgent(BaseAgent):
         super().__init__(name, env, seed, args.reward_type)
 
         # network type
-        assert args.network_type in ('cnn', 'lstm', 'gru', 'cnn_gru', 'msm', 'trans', 'trans_shared')
         self.network_type = args.network_type
 
         self.preprocess = args.preprocess
+        self.normalize = args.normalize
+        if self.normalize:
+            data = env.market.data
+            if self.preprocess == 'log_return':
+                data = prices_to_logreturns(data)
+            elif self.preprocess == 'divide_close':
+                data = prices_to_norm(data)
+            elif self.preprocess == 'simple_return':
+                data = prices_to_simplereturns(data)
+            elif self.preprocess == 'minmax':
+                data = prices_to_range(data)
+
+            # mean and std of stocks (no cash)
+            self.mean = data[1:].mean(axis=1)
+            self.std = data[1:].std(axis=1)
 
         # hyper-parameters
         self.num_episodes = args.num_episodes
@@ -280,9 +294,13 @@ class BaseACAgent(BaseAgent):
         elif self.preprocess == 'minmax':
             prices = prices_to_range(prices)
 
+        if self.normalize:
+            # don't normalize cash data
+            prices[1:] = (prices[1:] - self.mean[:,None,:]) / self.std[:,None,:]
+
         if self.network_type == 'trans':
             prices = remove_not_used(prices, volume=False)
-        elif self.network_type == 'trans_shared':
+        elif self.network_type == 'trans_shared' or self.network_type == 'lstm_shared':
             prices = remove_not_used(prices, cash=False, volume=False)
         else:
             prices = remove_not_used(prices)

@@ -83,7 +83,7 @@ class DDPGAgent(BaseACAgent):
             self.critic_target = TransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
 
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
-        self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic, weight_decay=1e-2)
+        self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic, weight_decay=0)
 
 
     def copy_params_to_target(self):

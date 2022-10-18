@@ -10,8 +10,8 @@ def main(agent_name):
 
     seed = 42
 
-    env_config_train = read_yaml_config('default/env_small_train')
-    env_config_test = read_yaml_config('default/env_small_test')
+    env_config_train = read_yaml_config('experiments/env_train_1')
+    env_config_test = read_yaml_config('experiments/env_test_1')
     env_vers = env_config_train.name
 
     env_train = Portfolio(env_config_train)

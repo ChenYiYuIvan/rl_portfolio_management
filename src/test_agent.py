@@ -16,40 +16,41 @@ def main():
 
     seed = 42
 
-    env_config = read_yaml_config('default/env_small_train')
-    #env_config = read_yaml_config('experiments/env_test_1')
-    env = Portfolio(env_config)
+    env_config_train = read_yaml_config('experiments/env_train_1')
+    env_train = Portfolio(env_config_train)
+    
+    env_config_test = read_yaml_config('experiments/env_train_1')
+    env_test = Portfolio(env_config_test)
 
     agents_list = []
 
     #ddpg_config = read_yaml_config('experiments/ddpg_8')
-    #ddpg = DDPGAgent('ddpg', env, seed, ddpg_config)
+    #ddpg = DDPGAgent('ddpg', env_train, seed, ddpg_config)
     # ddpg.load_models(0)
     # ddpg.load_actor_from_path('./checkpoints_pretrained/msm_real_7_49/real_epoch99.pth')
     # agents_list.append(ddpg)
 
     #td3_config = read_yaml_config('experiments/td3_1')
-    #td3 = TD3Agent('td3', env, seed, td3_config)
+    #td3 = TD3Agent('td3', env_train, seed, td3_config)
     # td3.load_models(35)
     # agents_list.append(td3)
 
     sac_config = read_yaml_config('experiments/sac_11')
-    sac = SACAgent('sac', env, seed, sac_config)
-    sac.load_models(88)
+    sac = SACAgent('sac', env_train, seed, sac_config)
+    sac.load_models(0)
     agents_list.append(sac)
 
     crp = CRPAgent('crp', env, seed)
     agents_list.append(crp)
 
-    #mpt = MPTAgent('mpt', env, seed, 'sharpe_ratio')
+    #mpt = MPTAgent('mpt', env_train, seed, 'sharpe_ratio')
     # agents_list.append(mpt)
 
-    #rng = RandomAgent('rng', env, seed)
+    #rng = RandomAgent('rng', env_train, seed)
     # agents_list.append(rng)
 
-    evaluator = AgentsEvaluator(env, agents_list)
-    evaluator.evaluate_all(num_cols=4, exploration=False,
-                           plot_stocks=True, plot_log=False)
+    evaluator = AgentsEvaluator(env_test, agents_list)
+    evaluator.evaluate_all(num_cols=4, exploration=False, plot_stocks=True, plot_log=False)
 
 
 if __name__ == '__main__':
