@@ -19,28 +19,28 @@ class VARMAForecaster(BaseForecaster):
         obj_cols = [f'{stock}_close' for stock in self.market_train.stock_names[1:]]
         return self.model.predict(step, step)[obj_cols].values[0]
 
-    def fit_test_model_given_par(self, p, q, render=False):
+    def fit_test_model_given_par(self, p, q, render=False, maxiter=50):
         # fit model on train data, test both in and out of sample and plot results
         # equivalent to forecast_all method of nn_forecaster
         data_train = self.data[:self.id_sep]
         data_test = self.data[self.id_sep:]
 
-        self.model = self._fit_model(data_train, p, q)
+        self.model = self._fit_model(data_train, p, q, maxiter=maxiter)
 
         obj_cols = [f'{stock}_close' for stock in self.market_train.stock_names[1:]]
 
         pred_vec_train = self.model.predict()[obj_cols].values
         truth_vec_train = data_train[obj_cols].values
-        mse_train = self._calculate_mse(pred_vec_train, truth_vec_train)
+        rmse_train = self._calculate_rmse(pred_vec_train, truth_vec_train)
 
-        mse_test, pred_vec_test, truth_vec_test, self.model = self._eval(self.model, data_test)
+        rmse_test, pred_vec_test, truth_vec_test, self.model = self._eval(self.model, data_test)
 
         if render:
-            self.plot_all(pred_vec_train, truth_vec_train, pred_vec_test, truth_vec_test)
+            self.plot_all(10*pred_vec_train + 0.025, truth_vec_train, 10*pred_vec_test + 0.025, truth_vec_test)
 
-        return mse_train, mse_test
+        return rmse_train, rmse_test
 
-    def train(self, save_path, maxlag=5, numfolds=5):
+    def train(self, save_path, maxiter=50, maxlag=5, numfolds=5):
         import warnings
         warnings.filterwarnings("ignore")
 
@@ -50,7 +50,7 @@ class VARMAForecaster(BaseForecaster):
         if not os.path.isdir(save_path):
             os.makedirs(save_path)
 
-        mse_results = np.zeros((maxlag, maxlag, numfolds))
+        rmse_results = np.zeros((maxlag, maxlag, numfolds))
 
         # create train-val-test splits for cross-validation
         data_train = self.data[:self.id_sep]
@@ -65,36 +65,36 @@ class VARMAForecaster(BaseForecaster):
                 for q in range(maxlag):
                     if p + q > 0:
                         print(f'Currently: fold = {fold}, p = {p}, q = {q}', end=' - ')
-                        model = self._fit_model(split_train, p, q)
+                        model = self._fit_model(split_train, p, q, maxiter=maxiter)
                         print('Start val', end=' - ')
-                        mse, _, _, _ = self._eval(model, split_test)
-                        mse_results[p,q,fold] = mse
-                        print(f'Loss = {mse:.6f}')
+                        rmse, _, _, _ = self._eval(model, split_test)
+                        rmse_results[p,q,fold] = rmse
+                        print(f'Loss = {rmse:.6f}')
 
-        mse_mean = mse_results.mean(axis=-1)
+        rmse_mean = rmse_results.mean(axis=-1)
 
-        best_idx = mse_mean.argmax()
+        best_idx = rmse_mean.argmax()
         best_p = best_idx // maxlag
         best_q = best_idx % maxlag
 
         print(f'Best model found: p = {best_p}, q = {best_q}')
-        mse_train, mse_test = self.fit_test_model_given_par(best_p, best_q, render=True)
-        print(f'Train loss = {mse_train} - Test loss = {mse_test}')
+        rmse_train, rmse_test = self.fit_test_model_given_par(best_p, best_q, render=True, maxiter=maxiter)
+        print(f'Train loss = {rmse_train} - Test loss = {rmse_test}')
 
         # save model
         with open(f'{save_path}/varma_p{best_p}_q{best_q}.pkl', 'wb') as outp:
             pickle.dump(self.__dict__, outp, pickle.HIGHEST_PROTOCOL)
 
-        return mse_train, mse_test, (best_p, best_q)
+        return rmse_train, rmse_test, (best_p, best_q)
 
     def load_model(self, model_path):
         self.__dict__.clear()
         with open(model_path, 'rb') as inp:
             self.__dict__.update(pickle.load(inp))
 
-    def _fit_model(self, data, p, q):
+    def _fit_model(self, data, p, q, maxiter=50):
         model = VARMAX(data, order=(p,q))
-        model_fit = model.fit(disp=False)
+        model_fit = model.fit(maxiter=maxiter, disp=False)
         return model_fit
 
     def _eval(self, model, data):
@@ -109,8 +109,8 @@ class VARMAForecaster(BaseForecaster):
         truth_vec = data[obj_cols].values
         pred_vec = pred_vec[obj_cols].values
 
-        mse = self._calculate_mse(pred_vec, truth_vec)
-        return mse, pred_vec, truth_vec, model_new
+        rmse = self._calculate_rmse(pred_vec, truth_vec)
+        return rmse, pred_vec, truth_vec, model_new
 
     def _process_data(self, market_test):
 

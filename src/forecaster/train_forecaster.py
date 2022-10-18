@@ -10,7 +10,7 @@ from src.environments.portfolio import Portfolio
 
 def main(method):
 
-    # environment to test on
+    # environment to train on
     env_num = 1
 
     if method == 'varma':
@@ -28,23 +28,25 @@ def main(method):
         market_test = env_test.market
 
         model = VARMAForecaster('varma', 'log_return', market_train, market_test)
-        model.train(f'./checkpoints_forecaster/varma_log_return_env{env_num}')
+        model.train(f'./checkpoints_forecaster/varma_log_return_env{env_num}', maxiter=1000)
 
     elif method == 'sac':
 
+        model = 'lstm' # trans / lstm
+
         config = {
-            'seed': 42,
+            'seed': 0,
             'env_train': f'experiments/env_train_{env_num}',
             'env_test': f'experiments/env_test_{env_num}',
-            'agent': 'experiments/sac_11',
-            'model': 'transformer_shared', # transformed / transformed_shared
-            'batch_size': 64,
+            'agent': 'experiments/sac_12',
+            'model': f'{model}_shared',
+            'batch_size': 256,
             'num_epochs': 1000,
             'learning_rate': 1e-4,
-            'weight_decay': 1e-2,
+            'weight_decay': 0,
             'eval_steps': 10,
-            'save_model_path': f'./checkpoints_forecaster/trans_shared_log_return_env{env_num}',
-            'model_name': 'trans_forecaster',
+            'save_model_path': f'./checkpoints_forecaster/{model}_shared_log_return_env{env_num}',
+            'model_name': f'{model}_forecaster',
             'checkpoint_ep': 0,
         }
 
@@ -66,7 +68,8 @@ def main(method):
             agent_config = read_yaml_config(config.agent)
             agent = SACAgent('sac', env_train, seed, agent_config)
 
-            forecaster = NNForecaster('transformer', agent, env_train.market)
+            forecaster = NNForecaster(config.model, agent)
+            #forecaster.model.init_weights(nonlinearity='leaky_relu', a=0.1)
 
             forecaster.train(env_test.market, config, run)
 

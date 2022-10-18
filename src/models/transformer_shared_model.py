@@ -138,7 +138,7 @@ class TransformerSharedForecaster(BaseModel):
 
         if len(x.shape) == 3:
             x = x[None,:,:,:]
-        # shape = [batch, window_length, num_assets, price_features]
+        # shape = [batch, num_assets, window_length, price_features]
 
         batch_size = x.shape[0]
         num_assets = x.shape[1]

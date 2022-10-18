@@ -26,19 +26,22 @@ def main(method):
         market_test = env_test.market
 
         model = VARMAForecaster('varma', 'log_return', market_train, market_test)
-        model.fit_test_model_given_par(p=0, q=2, render=True)
+        model.fit_test_model_given_par(p=1, q=4, render=True, maxiter=1000)
+
 
     elif method == 'sac':
 
+        model = 'lstm'
+
         config = {
-            'seed': 42,
+            'seed': 0,
             'env_train': f'experiments/env_train_{env_num}',
             'env_test': f'experiments/env_test_{env_num}',
-            'agent': 'experiments/sac_11',
-            'model': 'transformer_shared', # transformed / transformed_shared
-            'save_model_path': f'./checkpoints_forecaster/trans_shared_log_return_env{env_num}',
-            'model_name': 'trans_forecaster',
-            'episode': 9,
+            'agent': 'experiments/sac_12',
+            'model': f'{model}_shared', # transformed / transformed_shared
+            'save_model_path': f'./checkpoints_forecaster/{model}_shared_log_return_env{env_num}',
+            'model_name': f'{model}_forecaster',
+            'episode': 19,
         }
         
         config = Dict2Class(config)
@@ -57,9 +60,9 @@ def main(method):
         agent_config = read_yaml_config(config.agent)
         agent = SACAgent('sac', env_train, seed, agent_config)
 
-        forecaster = NNForecaster('transformer', agent, env_train.market)
+        forecaster = NNForecaster('transformer', agent)
 
-        forecaster.load_model(f'{config.save_model_path}/ep{config.episode}_{config.model_name}.pth')
+        #forecaster.load_model(f'{config.save_model_path}/ep{config.episode}_{config.model_name}.pth')
         forecaster.forecast_all(env_test.market, render=True)
 
 

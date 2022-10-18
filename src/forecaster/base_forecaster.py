@@ -20,8 +20,8 @@ class BaseForecaster:
         num_train = pred_vec_train.shape[0]
         num_test = pred_vec_test.shape[0]
 
-        mse_train = self._calculate_mse(pred_vec_train, truth_vec_train)
-        mse_test = self._calculate_mse(pred_vec_test, truth_vec_test)
+        rmse_train = self._calculate_rmse(pred_vec_train, truth_vec_train)
+        rmse_test = self._calculate_rmse(pred_vec_test, truth_vec_test)
 
         pred_vec = np.concatenate((pred_vec_train, pred_vec_test), axis=0)
         truth_vec = np.concatenate((truth_vec_train, truth_vec_test), axis=0)
@@ -30,7 +30,7 @@ class BaseForecaster:
 
             predictions = [el[i] for el in pred_vec]
             truths = [el[i] for el in truth_vec]
-            arr[i,0].plot(truths)
+            #arr[i,0].plot(truths)
             arr[i,0].plot(predictions)
 
             arr[i,0].axvspan(0, num_train, facecolor='g', alpha=0.3)
@@ -38,9 +38,12 @@ class BaseForecaster:
             arr[i,0].set_xlim(left=0, right=num_train+num_test)
             arr[i,0].title.set_text(f'{stock}')
 
-        fig.suptitle(f'{self.preprocess} - mse_train = {mse_train:.6f} - mse_test = {mse_test:.6f}')
-        fig.legend(['truth', 'pred'])
+        fig.suptitle(f'{self.preprocess} - rmse_train = {rmse_train:.6f} - rmse_test = {rmse_test:.6f}')
+        #fig.legend(['truth', 'pred'])
         plt.show()
 
     def _calculate_mse(self, pred_vec, truth_vec):
         return np.mean((pred_vec - truth_vec)**2)
+
+    def _calculate_rmse(self, pred_vec, truth_vec):
+        return np.sqrt(self._calculate_mse(pred_vec, truth_vec))

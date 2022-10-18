@@ -37,5 +37,10 @@ class StockDataset(Dataset):
 
         obs = torch.tensor(curr_obs, dtype=FLOAT, device=self.device)
         truth = torch.tensor(next_obs[1:,-1,2], dtype=FLOAT, device=self.device)
+        if self.agent.normalize:
+            # have to use non-normalized truth value
+            mean_close = torch.tensor(self.agent.mean[:,3], dtype=FLOAT, device=self.device)
+            std_close = torch.tensor(self.agent.std[:,3], dtype=FLOAT, device=self.device)
+            truth = truth * std_close + mean_close
 
         return obs, truth

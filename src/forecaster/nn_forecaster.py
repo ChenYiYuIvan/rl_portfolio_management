@@ -2,6 +2,7 @@ from src.forecaster.base_forecaster import BaseForecaster
 from src.utils.torch_utils import USE_CUDA, FLOAT
 from src.utils.data_utils import EPS
 from src.models.transformer_shared_model import TransformerSharedForecaster
+from src.models.lstm_shared_model import LSTMSharedForecaster
 from src.forecaster.data_loader import StockDataset
 
 import os
@@ -15,17 +16,20 @@ from tqdm import tqdm
 
 class NNForecaster(BaseForecaster):
 
-    def __init__(self, name, agent, market_train):
-        super().__init__(name, agent.preprocess, market_train)
+    def __init__(self, name, agent):
+        super().__init__(name, agent.preprocess, agent.env.market)
 
         self.device = torch.device("cuda:0" if USE_CUDA else "cpu")
         self.agent = agent
 
+        window_length = self.market_train.window_length
+        if self.preprocess in ('log_return', 'simple_return'):
+            window_length -= 1
+
         if agent.network_type == 'trans_shared':
-            window_length = market_train.window_length
-            if self.preprocess in ('log_return', 'simple_return'):
-                window_length -= 1
-            self.model = TransformerSharedForecaster(price_features=4, num_stocks=len(market_train.stock_names[1:]), window_length=window_length, d_model=64, num_heads=8, num_layers=3)
+            self.model = TransformerSharedForecaster(price_features=4, num_stocks=len(self.market_train.stock_names[1:]), window_length=window_length, d_model=64, num_heads=8, num_layers=3)
+        elif agent.network_type == 'lstm_shared':
+            self.model = LSTMSharedForecaster(price_features=4, num_stocks=len(self.market_train.stock_names[1:]), window_length=window_length, d_model=64, num_layers=3)
 
         if USE_CUDA:
             self.model = self.model.cuda()
@@ -40,6 +44,12 @@ class NNForecaster(BaseForecaster):
             pred = pred.detach().cpu().numpy()
         else:
             pred = pred.detach().numpy()
+
+        if self.agent.normalize:
+            # have to denormalize prediction
+            mean_close = self.agent.mean[:,3]
+            std_close = self.agent.std[:,3]
+            pred = pred * std_close + mean_close
 
         return pred
 
@@ -64,7 +74,7 @@ class NNForecaster(BaseForecaster):
 
         pred_vec_train = np.array(pred_vec_train)
         truth_vec_train = np.array(truth_vec_train)
-        mse_train = ((pred_vec_train - truth_vec_train)**2).mean()
+        rmse_train = self._calculate_rmse(pred_vec_train, truth_vec_train)
 
         # results on test
         market_test.reset()
@@ -83,12 +93,12 @@ class NNForecaster(BaseForecaster):
 
         pred_vec_test = np.array(pred_vec_test)
         truth_vec_test = np.array(truth_vec_test)
-        mse_test = ((pred_vec_test - truth_vec_test)**2).mean()
+        rmse_test = self._calculate_rmse(pred_vec_test, truth_vec_test)
 
         if render:
             self.plot_all(pred_vec_train, truth_vec_train, pred_vec_test, truth_vec_test)
 
-        return mse_train, mse_test
+        return rmse_train, rmse_test
 
     def load_model(self, model_path):
         self.model.load_state_dict(torch.load(model_path))
@@ -105,11 +115,12 @@ class NNForecaster(BaseForecaster):
         dataloader_test = DataLoader(test_data, 1, shuffle=False)
 
         if config.checkpoint_ep > 0:
-            self.model.load_state_dict(torch.load(f'{config.save_model_path}/ep{config.checkpoint_ep}_trans_forecaster.pth'))
+            self.model.load_state_dict(torch.load(f'{config.save_model_path}/ep{config.checkpoint_ep}_{config.model_name}.pth'))
 
-        loss = torch.nn.MSELoss()
+        # rmse
+        loss = lambda pred, truth: torch.sqrt(torch.nn.MSELoss()(pred, truth))
 
-        wandb_inst.watch(self.model, loss, log_freq=config.batch_size)
+        wandb_inst.watch(self.model, loss, log='all', log_freq=config.batch_size)
         artifact = wandb.Artifact(name='forecaster', type='model', metadata=dict(config))
 
         # creating directory to store models if it doesn't exist
@@ -132,6 +143,11 @@ class NNForecaster(BaseForecaster):
 
                 with amp.autocast():
                     pred = self.model(obs)
+                    if self.agent.normalize:
+                        # have to denormalize prediction
+                        mean_close = torch.tensor(self.agent.mean[:,3], dtype=FLOAT, device=self.device)
+                        std_close = torch.tensor(self.agent.std[:,3], dtype=FLOAT, device=self.device)
+                        pred = pred * std_close + mean_close
                     loss_value = loss(pred, truth)
 
                 scaler.scale(loss_value).backward()
@@ -163,10 +179,10 @@ class NNForecaster(BaseForecaster):
         wandb_inst.log_artifact(artifact)
 
         # plot results
-        mse_train, mse_test = self.forecast_all(market_test, render=True)
-        print(f'Train loss = {mse_train} - Test loss = {mse_test}')
+        rmse_train, rmse_test = self.forecast_all(market_test, render=True)
+        print(f'Train loss = {rmse_train} - Test loss = {rmse_test}')
 
-        return mse_train, mse_test
+        return rmse_train, rmse_test
 
     def _eval(self, loss, dataloader_test):
 
@@ -181,6 +197,11 @@ class NNForecaster(BaseForecaster):
                 truth = truth.cuda()
 
                 pred = self.model(obs)
+                if self.agent.normalize:
+                    # have to denormalize prediction
+                    mean_close = torch.tensor(self.agent.mean[:,3], dtype=FLOAT, device=self.device)
+                    std_close = torch.tensor(self.agent.std[:,3], dtype=FLOAT, device=self.device)
+                    pred = pred * std_close + mean_close
                 loss_value = loss(pred, truth.squeeze(0))
                 loss_test_mean.append(loss_value.item())
 
