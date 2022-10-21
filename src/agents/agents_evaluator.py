@@ -71,11 +71,9 @@ class AgentsEvaluator:
                     row = int((stock_id-1) / num_cols)  # current row in figure
                     col = (stock_id-1) % num_cols  # current col in figure
                     stock_name = stock_names[stock_id]  # current stock to plot
-                    info_stock = [
-                        {'date': item['date'], agent.name: item['action'][stock_id]} for item in infos]
+                    info_stock = [{'date': item['date'], agent.name: item['action'][stock_id]} for item in infos[1:]]
                     df2 = pd.DataFrame(info_stock)
-                    df2['date'] = pd.to_datetime(
-                        df2['date'], format=date_format)
+                    df2['date'] = pd.to_datetime(df2['date'], format=date_format)
                     df2.set_index('date', inplace=True)
                     df2.plot(ax=ax2[row, col], title=stock_name, rot=30, legend=False, grid=True)
                         #, ylim=[-0.02,1.02])
@@ -84,8 +82,7 @@ class AgentsEvaluator:
                 if col >= num_cols:
                     col = 0
                     row += 1
-                info_stock = [
-                    {'date': item['date'], agent.name: item['action'][0]} for item in infos]
+                info_stock = [{'date': item['date'], agent.name: item['action'][0]} for item in infos[1:]]
                 df2 = pd.DataFrame(info_stock)
                 df2['date'] = pd.to_datetime(
                     df2['date'], format=date_format)

@@ -8,7 +8,7 @@ reward_type = 'sortino_ratio'
 
 seed = 42
 
-env_config = read_yaml_config('experiments/env_train_0')
+env_config = read_yaml_config('experiments/env_train_2')
 env = Portfolio(env_config)
 
 agent = RandomAgent('crp', env, 42)
@@ -39,15 +39,15 @@ reward_approx = np.cumsum(diff_reward_approx)
 diff_reward = np.diff(reward)
 
 fig, ax = plt.subplots(2)
-ax[0].plot(reward_approx)
 ax[0].plot(reward)
+ax[0].plot(reward_approx)
 ax[0].grid()
 
-ax[1].plot(diff_reward_approx[1:])
 ax[1].plot(diff_reward)
+ax[1].plot(diff_reward_approx[1:])
 ax[1].grid()
 
-fig.legend(['approx', 'actual'])
+fig.legend(['actual', 'approx'])
 plt.show()
 
 print(f'approx = {reward_approx[-1]} - actual = {reward[-1]}')

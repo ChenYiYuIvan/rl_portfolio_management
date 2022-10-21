@@ -162,6 +162,8 @@ class BaseACAgent(BaseAgent):
             ep_reward_train = 0
 
             # keep sampling until done
+            old_info = None
+            old_info_copy = None
             done = False
             while not done:
                 step += 1
@@ -174,8 +176,9 @@ class BaseACAgent(BaseAgent):
 
                 # step forward environment
                 next_obs_original, done, info_action = self.env.step(action)
-                reward = self.get_reward(info_action)
+                reward = self.get_reward(info_action, old_info)
                 next_obs = self.preprocess_data(next_obs_original)
+                old_info = info_action
 
                 # add to buffer
                 self.buffer.add(curr_obs, action, reward, done, next_obs)
@@ -186,8 +189,9 @@ class BaseACAgent(BaseAgent):
                     action_copy, _ = get_opt_portfolio(curr_obs_original, 'sharpe_ratio', self.env_copy.trading_cost)
                     
                     next_obs_copy_original, done_copy, info_action_copy = self.env_copy.step(action)
-                    reward_copy = self.get_reward(info_action_copy)
+                    reward_copy = self.get_reward(info_action_copy, old_info_copy)
                     next_obs_copy = self.preprocess_data(next_obs_copy_original)
+                    old_info_copy = info_action_copy
 
                     self.buffer.add(curr_obs, action_copy, reward_copy, done_copy, next_obs_copy)
 

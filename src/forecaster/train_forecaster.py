@@ -11,7 +11,7 @@ from src.environments.portfolio import Portfolio
 def main(method):
 
     # environment to train on
-    env_num = 1
+    env_num = 2
 
     if method == 'varma':
         
@@ -41,13 +41,13 @@ def main(method):
             'agent': 'experiments/sac_12',
             'model': f'{model}_shared',
             'batch_size': 256,
-            'num_epochs': 1000,
-            'learning_rate': 1e-4,
+            'num_epochs': 10000,
+            'learning_rate': 1e-5,
             'weight_decay': 0,
             'eval_steps': 10,
             'save_model_path': f'./checkpoints_forecaster/{model}_shared_log_return_env{env_num}',
             'model_name': f'{model}_forecaster',
-            'checkpoint_ep': 0,
+            'checkpoint_ep': 999,
         }
 
         wandb.login()

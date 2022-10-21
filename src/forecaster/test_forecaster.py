@@ -9,7 +9,7 @@ from src.utils.file_utils import Dict2Class
 def main(method):
 
     # env to test on
-    env_num = 1
+    env_num = 2
 
     if method == 'varma':
 
@@ -34,14 +34,14 @@ def main(method):
         model = 'lstm'
 
         config = {
-            'seed': 0,
+            'seed': 42,
             'env_train': f'experiments/env_train_{env_num}',
             'env_test': f'experiments/env_test_{env_num}',
             'agent': 'experiments/sac_12',
             'model': f'{model}_shared', # transformed / transformed_shared
             'save_model_path': f'./checkpoints_forecaster/{model}_shared_log_return_env{env_num}',
             'model_name': f'{model}_forecaster',
-            'episode': 19,
+            'episode': 1999,
         }
         
         config = Dict2Class(config)
@@ -62,7 +62,7 @@ def main(method):
 
         forecaster = NNForecaster('transformer', agent)
 
-        #forecaster.load_model(f'{config.save_model_path}/ep{config.episode}_{config.model_name}.pth')
+        forecaster.load_model(f'{config.save_model_path}/ep{config.episode}_{config.model_name}.pth')
         forecaster.forecast_all(env_test.market, render=True)
 
 

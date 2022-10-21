@@ -19,7 +19,6 @@ class BaseAgent:
         if reward_type is None:
             self.reward_type = 'log_return'
         else:
-            assert reward_type in ('log_return', 'simple_return', 'diff_sharpe_ratio', 'diff_sortino_ratio')
             self.reward_type = reward_type
 
         self.state_dim = self.env.observation_space.shape # [price features, stocks, time window]
@@ -83,10 +82,20 @@ class BaseAgent:
         return obs
 
 
-    def get_reward(self, info):
+    def get_reward(self, info, old_info=None):
         simple_ret = info['simple_return']
         if self.reward_type in ('log_return, simple_return'):
             reward = info[self.reward_type]
+            
+        elif self.reward_type == 'sharpe_ratio':
+            reward = info['sharpe_ratio']
+            if old_info is not None:
+                reward -= old_info['sharpe_ratio']
+            
+        elif self.reward_type == 'sortino_ratio':
+            reward = info['sortino_ratio']
+            if old_info is not None:
+                reward -= old_info['sortino_ratio']
 
         elif self.reward_type == 'diff_sharpe_ratio':
             deltaA = simple_ret - self.A
@@ -111,6 +120,9 @@ class BaseAgent:
 
             self.A = self.A + self.eta * (simple_ret - self.A)
             self.DD = np.sqrt(self.DD**2 + self.eta * (np.minimum(simple_ret, 0)**2 - self.DD**2))
+            
+        else:
+            raise ValueError
 
         if hasattr(self, 'reward_scale'):
             reward *= self.reward_scale

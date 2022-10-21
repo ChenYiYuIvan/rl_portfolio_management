@@ -30,7 +30,7 @@ class BaseForecaster:
 
             predictions = [el[i] for el in pred_vec]
             truths = [el[i] for el in truth_vec]
-            #arr[i,0].plot(truths)
+            arr[i,0].plot(truths)
             arr[i,0].plot(predictions)
 
             arr[i,0].axvspan(0, num_train, facecolor='g', alpha=0.3)
@@ -39,7 +39,7 @@ class BaseForecaster:
             arr[i,0].title.set_text(f'{stock}')
 
         fig.suptitle(f'{self.preprocess} - rmse_train = {rmse_train:.6f} - rmse_test = {rmse_test:.6f}')
-        #fig.legend(['truth', 'pred'])
+        fig.legend(['truth', 'pred'])
         plt.show()
 
     def _calculate_mse(self, pred_vec, truth_vec):

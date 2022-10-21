@@ -9,6 +9,8 @@ from src.agents.ddpg_agent import DDPGAgent
 
 from src.models.msm_models import DeterministicMSMActor, DoubleMSMCritic
 from src.models.transformer_model import DeterministicTransformerActor, DoubleTransformerCritic
+from src.models.lstm_shared_model import DeterministicLSTMSharedActor, DoubleLSTMSharedCritic
+from src.models.transformer_shared_model import DeterministicTransformerSharedActor, DoubleTransformerSharedCritic
 from src.models.noise import NormalActionNoise
 
 
@@ -25,32 +27,32 @@ class TD3Agent(DDPGAgent):
         self.actor_noise = NormalActionNoise(self.action_dim, sigma=self.policy_noise)
 
     def define_actors_critics(self, args):
-        num_price_features = self.state_dim[2]
+        # close - high - low - volume
+        num_price_features = 4
         window_length = self.state_dim[1]
         num_stocks = self.state_dim[0]
 
         if self.preprocess == 'log_return':
             window_length -= 1 # because log returns instead of actual prices
         
-        if self.network_type == 'msm':
-            self.actor = DeterministicMSMActor(num_price_features, num_stocks, window_length)
-            self.actor_target = DeterministicMSMActor(num_price_features, num_stocks, window_length)
+        if self.network_type == 'lstm_shared':
             
-            self.critic = DoubleMSMCritic(num_price_features, num_stocks, window_length)
-            self.critic_target = DoubleMSMCritic(num_price_features, num_stocks, window_length)
+            self.actor = DeterministicLSTMSharedActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_layers=args.num_layers)
+            self.actor_target = DeterministicLSTMSharedActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_layers=args.num_layers)
+            
+            self.critic = DoubleLSTMSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_layers=args.num_layers)
+            self.critic_target = DoubleLSTMSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_layers=args.num_layers)
 
-        elif self.network_type == 'trans':
-            # close - high - low - volume
-            num_price_features = 4
+        elif self.network_type == 'trans_shared':
 
-            self.actor = DeterministicTransformerActor(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
-            self.actor_target = DeterministicTransformerActor(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+            self.actor = DeterministicTransformerSharedActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
+            self.actor_target = DeterministicTransformerSharedActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
 
-            self.critic = DoubleTransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
-            self.critic_target = DoubleTransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+            self.critic = DoubleTransformerSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
+            self.critic_target = DoubleTransformerSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
 
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
-        self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic, weight_decay=1e-2)
+        self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic, weight_decay=0)
 
     def compute_value_loss(self, s_batch, a_batch, r_batch, t_batch, s2_batch):
         mse_loss = nn.MSELoss()

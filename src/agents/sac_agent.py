@@ -10,6 +10,7 @@ from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
 from src.models.gaussian_actor import GaussianActor
 from src.models.critic import DoubleCritic
 from src.models.lstm_models import GaussianLSTMActor, DoubleLSTMCritic
+from src.models.lstm_shared_model import GaussianLSTMSharedActor, DoubleLSTMSharedCritic
 from src.models.gru_models import GaussianGRUActor, DoubleGRUCritic
 from src.models.msm_models import GaussianMSMActor, DoubleMSMCritic
 from src.models.transformer_model import GaussianTransformerActor, DoubleTransformerCritic
@@ -63,6 +64,15 @@ class SACAgent(BaseACAgent):
             # target networks for soft q-functions
             self.critic_target = DoubleLSTMCritic(num_price_features * num_stocks, self.action_dim)
 
+        elif self.network_type == 'lstm_shared':
+            # close - high - low - volume
+            num_price_features = 4
+
+            self.actor = GaussianLSTMSharedActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_layers=args.num_layers)
+
+            self.critic = DoubleLSTMSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_layers=args.num_layers)
+            self.critic_target = DoubleLSTMSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_layers=args.num_layers)
+
         elif self.network_type == 'gru':
             # policy function
             self.actor = GaussianGRUActor(num_price_features * num_stocks, self.action_dim)
@@ -83,19 +93,19 @@ class SACAgent(BaseACAgent):
             # close - high - low - volume
             num_price_features = 4
 
-            self.actor = GaussianTransformerActor(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+            self.actor = GaussianTransformerActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
 
-            self.critic = DoubleTransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
-            self.critic_target = DoubleTransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+            self.critic = DoubleTransformerCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
+            self.critic_target = DoubleTransformerCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
 
-        elif self.network_type == 'trans_shared' or self.network_type == 'lstm_shared':
+        elif self.network_type == 'trans_shared':
             # close - high - low - volume
             num_price_features = 4
 
-            self.actor = GaussianTransformerSharedActor(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+            self.actor = GaussianTransformerSharedActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
 
-            self.critic = DoubleTransformerSharedCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
-            self.critic_target = DoubleTransformerSharedCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+            self.critic = DoubleTransformerSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
+            self.critic_target = DoubleTransformerSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
 
         # optimizers
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)

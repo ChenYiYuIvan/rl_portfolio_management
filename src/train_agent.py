@@ -8,17 +8,17 @@ from src.agents.td3_agent import TD3Agent
 
 def main(agent_name):
 
-    seed = 42
+    seed = 0
 
-    env_config_train = read_yaml_config('experiments/env_train_1')
-    env_config_test = read_yaml_config('experiments/env_test_1')
+    env_config_train = read_yaml_config('experiments/env_train_2')
+    env_config_test = read_yaml_config('experiments/env_test_2')
     env_vers = env_config_train.name
 
     env_train = Portfolio(env_config_train)
     env_test = Portfolio(env_config_test)
 
     if agent_name == 'ddpg':
-        agent_config = read_yaml_config('experiments/ddpg_8')
+        agent_config = read_yaml_config('experiments/ddpg_11')
         agent = DDPGAgent('ddpg', env_train, seed, agent_config)
 
     elif agent_name == 'td3':
@@ -26,7 +26,7 @@ def main(agent_name):
         agent = TD3Agent('td3', env_train, seed, agent_config)
 
     elif agent_name == 'sac':
-        agent_config = read_yaml_config('experiments/sac_11')
+        agent_config = read_yaml_config('experiments/sac_14')
         agent = SACAgent('sac', env_train, seed, agent_config)
 
     agent_vers = agent_config.name
@@ -44,6 +44,6 @@ def main(agent_name):
 
 if __name__ == '__main__':
 
-    #main('ddpg')
+    main('ddpg')
     #main('td3')
-    main('sac')
+    #main('sac')

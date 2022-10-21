@@ -1,205 +1,183 @@
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.distributions.normal import Normal
+from src.models.base_models import BaseModel
 from src.utils.data_utils import EPS
+import math
 
 
-class DeterministicLSTMActor(nn.Module):
-    # represents the policy function
+class BaseLSTM(BaseModel):
+    
+    def __init__(self, price_features, num_stocks, window_length, d_model, num_layers):
+        super().__init__()
+        
+        num_input_features = price_features * num_stocks
+        
+        self.input_fc = nn.Linear(num_input_features, d_model)
 
-    def __init__(self, input_size, output_size):
+        self.lstm = nn.LSTM(input_size=d_model, hidden_size=d_model, num_layers=num_layers, batch_first=True)
+
+        self.lstm_fc1 = nn.Linear(d_model, 1)
+        self.lstm_fc2 = nn.Linear(window_length, 1)
+
+        self.leaky_relu = nn.LeakyReLU(0.1)
+
+    def forward(self, x):
+        
+        if len(x.shape) == 3:
+            x = x[None,:,:,:]
+        # shape = [batch, window_length, num_stocks, price_features]
+
+        x = torch.flatten(x, 2)
+        # shape = [batch, window_length, num_stocks * price_features]
+
+        x = self.leaky_relu(self.input_fc(x))
+        # shape = [batch, window_length, d_model]
+
+        x, _ = self.lstm(x)
+        # shape = [batch, window_length, d_model]
+
+        x = self.leaky_relu(self.lstm_fc1(x)).squeeze(2)
+        # shape = [batch, window_length]
+
+        x = self.leaky_relu(self.lstm_fc2(x))
+        # shape = [batch, 1]
+
+        return x
+
+class BaseActionLSTM(BaseModel):
+
+    def __init__(self, price_features, num_stocks, window_length, d_model, num_layers):
         super().__init__()
 
-        self.lstm = nn.LSTM(input_size, output_size, num_layers=2, batch_first=True)
-        
-        self.fc1 = nn.Linear(2*output_size,128) # input = state + past action
-        self.fc2 = nn.Linear(128,64)
-        self.fc3 = nn.Linear(64,32)
-        self.fc4 = nn.Linear(32,output_size)
+        num_assets = num_stocks + 1
 
-        self.leaky_relu = nn.LeakyReLU()
-        self.softmax = nn.Softmax(-1)
+        self.base = BaseLSTM(price_features, num_stocks, window_length, d_model, num_layers)
 
+        self.weights_fc = nn.Linear(num_assets, d_model)
+
+        self.fc = nn.Linear(2*d_model, d_model)
+
+        self.relu = nn.ReLU()
 
     def forward(self, x, w):
-        # x = state
-        # w = past action
 
-        if len(x.shape) == 3:
-            # single data point - no batches
-            x = x[None,:,:,:]
+        if len(w.shape) == 1:
             w = w[None,:]
 
-        #x = torch.transpose(x, 1, 3) # so as to have [batch, time window, stock, high/low/close]
-        x = x.flatten(2) # so as to have [batch, time window, features]
+        x = self.base(x)
 
-        _, (x,_) = self.lstm(x)
-        x = self.leaky_relu(x[-1,:,:]) # take only hidden state of last layer
+        w = self.relu(self.weights_fc(w))
+        x = torch.cat((x, w), dim=-1)
+        # shape = [batch, 2*d_model]
+        
+        x = self.relu(self.fc(x))
+        # shape = [batch, d_model]
 
-        # concatenate past action to state
-        x = torch.cat((x,w), dim=-1)
+        return x
 
-        x = self.fc1(x)
-        x = self.leaky_relu(x)
-        x = self.fc2(x)
-        x = self.leaky_relu(x)
-        x = self.fc3(x)
-        x = self.leaky_relu(x)
-        x = self.fc4(x)
+
+class DeterministicLSTMActor(BaseModel):
+
+    def __init__(self, price_features, num_stocks, window_length, d_model, num_layers):
+        super().__init__()
+
+        self.common = BaseActionLSTM(price_features, num_stocks, window_length, d_model, num_layers)
+
+        num_assets = num_stocks + 1
+        self.fc = nn.Linear(d_model, num_assets)
+
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x, w):
+
+        x = self.common(x, w)
+
+        x = self.fc(x)
         x = self.softmax(x)
 
         return x.squeeze()
 
 
-    def requires_grad(self, req):
-        for param in self.parameters():
-            param.requires_grad = req
+class GaussianLSTMActor(BaseModel):
 
-
-LOG_STD_MAX = 2
-LOG_STD_MIN = -20
-
-class GaussianLSTMActor(nn.Module):
-    # represents the policy function
-
-    def __init__(self, input_size, output_size):
+    def __init__(self, price_features, num_stocks, window_length, d_model, num_layers):
         super().__init__()
 
-        self.lstm = nn.LSTM(input_size, output_size, num_layers=2, batch_first=True)
-        
-        self.fc1 = nn.Linear(2*output_size,128) # input = state + past action
-        self.fc2 = nn.Linear(128,64)
-        self.fc3 = nn.Linear(64,32)
+        self.common = BaseActionLSTM(price_features, num_stocks, window_length, d_model, num_layers)
 
-        self.fc_mu = nn.Linear(32, output_size)
-        self.fc_logstd = nn.Linear(32, output_size)
+        num_assets = num_stocks + 1
 
-        self.leaky_relu = nn.LeakyReLU()
-        self.softmax = nn.Softmax(-1)
+        self.fc_mu = nn.Linear(d_model, num_assets)
+        self.fc_logstd = nn.Linear(d_model, num_assets)
 
+        self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, x, w, exploration=True, with_logprob=True):
-        # x = state
-        # w = past action
+    def forward(self, x, w, exploration=True):
 
-        if len(x.shape) == 3:
-            # single data point - no batches
-            x = x[None,:,:,:]
-            w = w[None,:]
-
-        #x = torch.transpose(x, 1, 3) # so as to have [batch, time window, stock, high/low/close]
-        x = x.flatten(2) # so as to have [batch, time window, features]
-
-        _, (x,_) = self.lstm(x)
-        x = self.leaky_relu(x[-1,:,:]) # take only hidden state of last layer
-
-        # concatenate past action to state
-        x = torch.cat((x,w), dim=-1)
-
-        x = self.fc1(x)
-        x = self.leaky_relu(x)
-        x = self.fc2(x)
-        x = self.leaky_relu(x)
-        x = self.fc3(x)
-        x = self.leaky_relu(x)
+        x = self.common(x, w)
 
         mu = self.fc_mu(x)
+
         log_std = self.fc_logstd(x)
-        log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
         std = torch.exp(log_std)
 
-        # action distribution
         pi_distribution = Normal(mu, std)
         if exploration:
             xs = pi_distribution.sample()
         else:
-            # only when testing policy
             xs = mu
 
         # tanh squashing
         pi_action = torch.tanh(xs)
-        if with_logprob: # compute log_probability of pi_action
-            log_pi = pi_distribution.log_prob(xs) - torch.log(1 - pi_action.pow(2) + EPS)
-            log_pi = log_pi.sum(dim=-1, keepdim=True)
-        else:
-            log_pi = None
+        
+        # compute log_probability of pi_action
+        log_pi = pi_distribution.log_prob(xs) - torch.log(1 - pi_action.pow(2) + EPS)
+        log_pi = log_pi.sum(dim=-1, keepdim=True)
 
-        # transform action to satisfy portfolio constraints
-        pi_action = pi_action + 1
-        total = pi_action.sum(dim=-1)
-        pi_action = pi_action / total[:,None]
+        #x = self.softmax(pi_action)
+        x = (pi_action + 1) / 2
+        total = x.sum(dim=-1)
+        x /= total[:,None]
 
-        return pi_action.squeeze(), log_pi
-
-
-    def requires_grad(self, req):
-        for param in self.parameters():
-            param.requires_grad = req
+        return x.squeeze(), log_pi
 
 
-class LSTMCritic(nn.Module):
-    # represents the policy function
+class LSTMCritic(BaseModel):
 
-    def __init__(self, input_size, output_size):
+    def __init__(self, price_features, num_stocks, window_length, d_model, num_layers):
         super().__init__()
 
-        self.lstm = nn.LSTM(input_size, output_size, num_layers=2, batch_first=True)
-        
-        self.fc1 = nn.Linear(3*output_size,128) # input = state + past action + action
-        self.fc2 = nn.Linear(128,64)
-        self.fc3 = nn.Linear(64,32)
-        self.fc4 = nn.Linear(32,16)
-        self.fc5 = nn.Linear(16,1)
+        self.common = BaseActionLSTM(price_features, num_stocks, window_length, d_model, num_layers)
 
-        self.leaky_relu = nn.LeakyReLU()
+        num_assets = num_stocks + 1
 
+        self.action_fc = nn.Linear(num_assets, d_model)
+
+        self.fc = nn.Linear(2*d_model, 1)
 
     def forward(self, x, w, action):
-        # x = state
-        # w = past action
 
         if len(x.shape) == 3:
-            # single data point - no batches
-            x = x[None,:,:,:]
-            w = w[None,:]
             action = action[None,:]
 
-        #x = torch.transpose(x, 1, 3) # so as to have [batch, time window, stock, high/low/close]
-        x = x.flatten(2) # so as to have [batch, time window, features]
-        
-        _, (x,_) = self.lstm(x)
-        x = self.leaky_relu(x[-1,:,:]) # take only hidden state of last layer
+        x = self.common(x, w)
 
-        # concatenate past action to state
-        x = torch.cat((x,w,action), dim=-1)
+        action = self.action_fc(action)
+        x = torch.cat((x,action), dim=-1)
 
-        x = self.fc1(x)
-        x = self.leaky_relu(x)
-        x = self.fc2(x)
-        x = self.leaky_relu(x)
-        x = self.fc3(x)
-        x = self.leaky_relu(x)
-        x = self.fc4(x)
-        x = self.leaky_relu(x)
-        x = self.fc5(x)
+        x = self.fc(x)
 
-        return x
+        return x.squeeze(0)
 
 
-    def requires_grad(self, req):
-        for param in self.parameters():
-            param.requires_grad = req
+class DoubleLSTMCritic(BaseModel):
 
-
-class DoubleLSTMCritic(nn.Module):
-    # double critics for sac
-
-    def __init__(self, input_size, output_size):
+    def __init__(self, price_features, num_stocks, window_length, d_model, num_layers):
         super().__init__()
 
-        self.Q1 = LSTMCritic(input_size, output_size)
-        self.Q2 = LSTMCritic(input_size, output_size)
-
+        self.Q1 = LSTMCritic(price_features, num_stocks, window_length, d_model, num_layers)
+        self.Q2 = LSTMCritic(price_features, num_stocks, window_length, d_model, num_layers)
 
     def forward(self, x, w, action):
         # x = state
@@ -209,8 +187,26 @@ class DoubleLSTMCritic(nn.Module):
         q2 = self.Q2(x, w, action)
 
         return q1, q2
+    
+    
+class TransformerForecaster(BaseModel):
 
+    def __init__(self, price_features, num_stocks, window_length, d_model, num_layers):
+        super().__init__()
 
-    def requires_grad(self, req):
-        self.Q1.requires_grad(req)
-        self.Q2.requires_grad(req)
+        self.base = BaseTransformer(price_features, num_stocks, window_length, d_model, num_layers)
+
+        self.fc1 = nn.Linear(d_model, d_model)
+        self.fc2 = nn.Linear(d_model, num_stocks)
+
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+
+        x = self.base(x)
+
+        x = self.relu(self.fc1(x))
+
+        x = self.fc2(x)
+
+        return x.squeeze(0)

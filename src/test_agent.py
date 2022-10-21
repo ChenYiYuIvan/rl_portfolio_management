@@ -14,33 +14,32 @@ pd.options.display.float_format = '{:,.6f}'.format
 
 def main():
 
-    seed = 42
+    seed = 0
 
-    env_config_train = read_yaml_config('experiments/env_train_1')
+    env_config_train = read_yaml_config('experiments/env_train_2')
     env_train = Portfolio(env_config_train)
     
-    env_config_test = read_yaml_config('experiments/env_train_1')
+    env_config_test = read_yaml_config('experiments/env_test_2')
     env_test = Portfolio(env_config_test)
 
     agents_list = []
 
-    #ddpg_config = read_yaml_config('experiments/ddpg_8')
+    #ddpg_config = read_yaml_config('experiments/ddpg_9')
     #ddpg = DDPGAgent('ddpg', env_train, seed, ddpg_config)
-    # ddpg.load_models(0)
-    # ddpg.load_actor_from_path('./checkpoints_pretrained/msm_real_7_49/real_epoch99.pth')
-    # agents_list.append(ddpg)
+    #ddpg.load_models(6)
+    #agents_list.append(ddpg)
 
     #td3_config = read_yaml_config('experiments/td3_1')
     #td3 = TD3Agent('td3', env_train, seed, td3_config)
     # td3.load_models(35)
     # agents_list.append(td3)
 
-    sac_config = read_yaml_config('experiments/sac_11')
+    sac_config = read_yaml_config('experiments/sac_14')
     sac = SACAgent('sac', env_train, seed, sac_config)
-    sac.load_models(0)
+    sac.load_models(12)
     agents_list.append(sac)
 
-    crp = CRPAgent('crp', env, seed)
+    crp = CRPAgent('crp', env_train, seed)
     agents_list.append(crp)
 
     #mpt = MPTAgent('mpt', env_train, seed, 'sharpe_ratio')

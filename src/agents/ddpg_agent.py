@@ -10,10 +10,12 @@ from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
 
 from src.models.cnn_models import DeterministicCNNActor, CNNCritic
 from src.models.lstm_models import DeterministicLSTMActor, LSTMCritic
+from src.models.lstm_shared_model import DeterministicLSTMSharedActor, LSTMSharedCritic
 from src.models.gru_models import DeterministicGRUActor, GRUCritic
 from src.models.cnn_gru_models import DeterministicCNNGRUActor, CNNGRUCritic
 from src.models.msm_models import DeterministicMSMActor, MSMCritic
 from src.models.transformer_model import DeterministicTransformerActor, TransformerCritic
+from src.models.transformer_shared_model import DeterministicTransformerSharedActor, TransformerSharedCritic
 from src.models.noise import OrnsteinUhlenbeckActionNoise
 
 
@@ -50,6 +52,16 @@ class DDPGAgent(BaseACAgent):
             self.critic = LSTMCritic(num_price_features * num_stocks, self.action_dim)
             self.critic_target = LSTMCritic(num_price_features * num_stocks, self.action_dim)
 
+        elif self.network_type == 'lstm_shared':
+            # close - high - low - volume
+            num_price_features = 4
+
+            self.actor = DeterministicLSTMSharedActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_layers=args.num_layers)
+            self.actor_target = DeterministicLSTMSharedActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_layers=args.num_layers)
+
+            self.critic = LSTMSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_layers=args.num_layers)
+            self.critic_target = LSTMSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_layers=args.num_layers)
+
         elif self.network_type == 'gru':
             # add 1 to output_size for cash dimension
             self.actor = DeterministicGRUActor(num_price_features * num_stocks, self.action_dim)
@@ -76,11 +88,21 @@ class DDPGAgent(BaseACAgent):
             # close - high - low - volume
             num_price_features = 4
 
-            self.actor = DeterministicTransformerActor(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
-            self.actor_target = DeterministicTransformerActor(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+            self.actor = DeterministicTransformerActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
+            self.actor_target = DeterministicTransformerActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
 
-            self.critic = TransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
-            self.critic_target = TransformerCritic(num_price_features, num_stocks, window_length, d_model=64, num_heads=8, num_layers=3)
+            self.critic = TransformerCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
+            self.critic_target = TransformerCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
+            
+        elif self.network_type == 'trans_shared':
+            # close - high - low - volume
+            num_price_features = 4
+
+            self.actor = DeterministicTransformerSharedActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
+            self.actor_target = DeterministicTransformerSharedActor(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
+
+            self.critic = TransformerSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
+            self.critic_target = TransformerSharedCritic(num_price_features, num_stocks, window_length, d_model=args.d_model, num_heads=8, num_layers=args.num_layers)
 
         self.actor_optim = Adam(self.actor.parameters(), lr=args.lr_actor)
         self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_critic, weight_decay=0)
