@@ -26,7 +26,7 @@ def main(method):
         market_test = env_test.market
 
         model = VARMAForecaster('varma', 'log_return', market_train, market_test)
-        model.fit_test_model_given_par(p=1, q=4, render=True, maxiter=1000)
+        model.fit_test_model_given_par(p=0, q=3, render=True, maxiter=1000)
 
 
     elif method == 'sac':
@@ -34,24 +34,26 @@ def main(method):
         model = 'lstm'
 
         config = {
-            'seed': 42,
+            'seed': 0,
             'env_train': f'experiments/env_train_{env_num}',
             'env_test': f'experiments/env_test_{env_num}',
+            #'env_train': f'default/env_small_train',
+            #'env_test': f'default/env_small_test',
             'agent': 'experiments/sac_12',
             'model': f'{model}_shared', # transformed / transformed_shared
-            'save_model_path': f'./checkpoints_forecaster/{model}_shared_log_return_env{env_num}',
+            'save_model_path': f'./checkpoints_forecaster/{model}_shared_log_return_env{env_num}pre',
             'model_name': f'{model}_forecaster',
-            'episode': 1999,
+            'episode': 59,
         }
         
         config = Dict2Class(config)
 
-        seed = 42
+        seed = 0
 
-        env_config_train = read_yaml_config(f'experiments/env_train_{env_num}')
+        env_config_train = read_yaml_config(config.env_train)
         env_train = Portfolio(env_config_train)
 
-        env_config_test = read_yaml_config(f'experiments/env_test_{env_num}')
+        env_config_test = read_yaml_config(config.env_test)
         # assuming test directly follows train -> have to modify test start date so that
         # the first forecast is first day of the year using obs from prev year
         env_config_test.start_date = env_train.market.date_list[-env_config_test.window_length]

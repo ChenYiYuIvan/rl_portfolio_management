@@ -58,7 +58,7 @@ class BaseActionLSTM(BaseModel):
 
         self.fc = nn.Linear(2*d_model, d_model)
 
-        self.relu = nn.ReLU()
+        self.leaky_relu = nn.LeakyReLU(0.1)
 
     def forward(self, x, w):
 
@@ -67,11 +67,11 @@ class BaseActionLSTM(BaseModel):
 
         x = self.base(x)
 
-        w = self.relu(self.weights_fc(w))
+        w = self.leaky_relu(self.weights_fc(w))
         x = torch.cat((x, w), dim=-1)
         # shape = [batch, 2*d_model]
         
-        x = self.relu(self.fc(x))
+        x = self.leaky_relu(self.fc(x))
         # shape = [batch, d_model]
 
         return x
@@ -155,6 +155,8 @@ class LSTMCritic(BaseModel):
         self.action_fc = nn.Linear(num_assets, d_model)
 
         self.fc = nn.Linear(2*d_model, 1)
+        
+        self.leaky_relu = nn.LeakyReLU(0.1)
 
     def forward(self, x, w, action):
 
@@ -189,23 +191,23 @@ class DoubleLSTMCritic(BaseModel):
         return q1, q2
     
     
-class TransformerForecaster(BaseModel):
+class LSTMForecaster(BaseModel):
 
     def __init__(self, price_features, num_stocks, window_length, d_model, num_layers):
         super().__init__()
 
-        self.base = BaseTransformer(price_features, num_stocks, window_length, d_model, num_layers)
+        self.base = BaseLSTM(price_features, num_stocks, window_length, d_model, num_layers)
 
         self.fc1 = nn.Linear(d_model, d_model)
         self.fc2 = nn.Linear(d_model, num_stocks)
 
-        self.relu = nn.ReLU()
+        self.leaky_relu = nn.LeakyReLU(0.1)
 
     def forward(self, x):
 
         x = self.base(x)
 
-        x = self.relu(self.fc1(x))
+        x = self.leaky_relu(self.fc1(x))
 
         x = self.fc2(x)
 

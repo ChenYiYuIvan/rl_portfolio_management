@@ -10,7 +10,7 @@ from src.utils.torch_utils import USE_CUDA, FLOAT, copy_params, update_params
 from src.models.gaussian_actor import GaussianActor
 from src.models.critic import DoubleCritic
 from src.models.lstm_models import GaussianLSTMActor, DoubleLSTMCritic
-from src.models.lstm_shared_model import GaussianLSTMSharedActor, DoubleLSTMSharedCritic
+from src.models.lstm_shared_model import GaussianLSTMSharedActor, DoubleLSTMSharedCritic, LSTMSharedForecaster
 from src.models.gru_models import GaussianGRUActor, DoubleGRUCritic
 from src.models.msm_models import GaussianMSMActor, DoubleMSMCritic
 from src.models.transformer_model import GaussianTransformerActor, DoubleTransformerCritic
@@ -257,8 +257,52 @@ class SACAgent(BaseACAgent):
         return action
 
 
-    def load_pretrained(self, path):
-        return super().load_pretrained(path)
+    def load_pretrained(self, path, wandb_inst):
+        # initialize common part of actors and critics to values obtained from training forecaster
+        num_price_features = 4
+        window_length = self.state_dim[1]
+        num_stocks = self.state_dim[0]
+        if self.preprocess == 'log_return':
+            window_length -= 1 # because log returns instead of actual prices
+
+        if self.network_type == 'lstm_shared':
+            forecaster = LSTMSharedForecaster(num_price_features, num_stocks, window_length, d_model=wandb_inst.config.agent['d_model'], num_layers=wandb_inst.config.agent['num_layers'])
+            
+        forecaster.load_state_dict(torch.load(path))
+        forecaster_state_dict = forecaster.state_dict()
+        
+        # keep only base part
+        forecaster_actor_state_dict = {k.replace('base', 'common.base'): v for k, v in forecaster_state_dict.items() if k.startswith('base')}
+        
+        # load to actor
+        actor_state_dict = self.actor.state_dict()
+        actor_state_dict.update(forecaster_actor_state_dict)
+        self.actor.load_state_dict(actor_state_dict)
+        
+        # for double critic, state dict is doubled
+        forecaster_critic1_state_dict = {k.replace('base', 'Q1.common.base'): v for k, v in forecaster_state_dict.items() if k.startswith('base')}
+        forecaster_critic2_state_dict = {k.replace('base', 'Q2.common.base'): v for k, v in forecaster_state_dict.items() if k.startswith('base')}
+        forecaster_critic_state_dict = forecaster_critic1_state_dict | forecaster_critic2_state_dict
+
+        # load to critic
+        critic_state_dict = self.critic.state_dict()
+        critic_state_dict.update(forecaster_critic_state_dict)
+        self.critic.load_state_dict(critic_state_dict)
+
+        # copy to target
+        self.copy_params_to_target()
+
+        # freeze pretrained params
+        for name, param in self.actor.named_parameters():
+            if 'base.' in name:
+                param.requires_grad = False
+
+        for name, param in self.critic.named_parameters():
+            if 'base.' in name:
+                param.requires_grad = False
+
+        # freeze target again just to be sure
+        self.set_networks_grad('target', False)
 
 
     def set_train(self):

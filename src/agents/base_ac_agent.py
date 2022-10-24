@@ -96,7 +96,7 @@ class BaseACAgent(BaseAgent):
         raise NotImplementedError
 
     
-    def load_pretrained(self, path):
+    def load_pretrained(self, path, config):
         raise NotImplementedError
 
 
@@ -124,7 +124,7 @@ class BaseACAgent(BaseAgent):
 
         if pretrained_path is not None:
             assert self.imitation_learning == 'passive', 'Provided path for pretrained model but not using passive imitation learning'
-            self.load_pretrained(pretrained_path)
+            self.load_pretrained(pretrained_path, wandb_inst)
         elif pretrained_path is None:
             assert self.imitation_learning != 'passive', 'Using passive imitation learning but didn\'t provide path of pretrained model'
 

@@ -9,16 +9,17 @@ from src.agents.td3_agent import TD3Agent
 def main(agent_name):
 
     seed = 0
+    env_num = 2
 
-    env_config_train = read_yaml_config('experiments/env_train_2')
-    env_config_test = read_yaml_config('experiments/env_test_2')
+    env_config_train = read_yaml_config(f'experiments/env_train_{env_num}')
+    env_config_test = read_yaml_config(f'experiments/env_test_{env_num}')
     env_vers = env_config_train.name
 
     env_train = Portfolio(env_config_train)
     env_test = Portfolio(env_config_test)
 
     if agent_name == 'ddpg':
-        agent_config = read_yaml_config('experiments/ddpg_11')
+        agent_config = read_yaml_config('experiments/ddpg_12')
         agent = DDPGAgent('ddpg', env_train, seed, agent_config)
 
     elif agent_name == 'td3':
@@ -26,7 +27,7 @@ def main(agent_name):
         agent = TD3Agent('td3', env_train, seed, agent_config)
 
     elif agent_name == 'sac':
-        agent_config = read_yaml_config('experiments/sac_14')
+        agent_config = read_yaml_config('experiments/sac_18')
         agent = SACAgent('sac', env_train, seed, agent_config)
 
     agent_vers = agent_config.name
@@ -37,13 +38,13 @@ def main(agent_name):
     with wandb.init(project="thesis", entity="mldlproj1gr2", name=f"{agent_vers}_{env_vers}",
                     config=config, mode="online") as run:
 
-        #pretrained_path = './checkpoints_pretrained/msm_real_7_49/real_epoch99.pth'
-        agent.train(run, env_test, pretrained_path=None)
+        pretrained_path = f'./checkpoints_forecaster/{agent_config.network_type}_{agent_config.preprocess}_env{env_num}/ep999_lstm_forecaster.pth'
+        agent.train(run, env_test, pretrained_path)
         #agent.eval(env_test, render=False)
 
 
 if __name__ == '__main__':
 
-    main('ddpg')
+    #main('ddpg')
     #main('td3')
-    #main('sac')
+    main('sac')

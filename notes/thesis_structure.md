@@ -50,6 +50,8 @@
 - CNN, RNN (LSTM / GRU), Transformers
 - DDPG, TD3, SAC + modifications (adding imitation learning / pretraining / forecasting)
 
+## 2b. Implementation
+
 ## 3. Experiments
 
 - Data used (S&P500)

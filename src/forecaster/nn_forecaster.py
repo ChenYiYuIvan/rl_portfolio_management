@@ -102,6 +102,32 @@ class NNForecaster(BaseForecaster):
 
     def load_model(self, model_path):
         self.model.load_state_dict(torch.load(model_path))
+        
+    def load_pretrained(self, model_path):
+         # initialize common part of actors and critics to values obtained from training forecaster
+        num_price_features = 4
+        window_length = self.market_train.window_length
+        num_stocks = len(self.market_train.stock_names[1:])
+        if self.preprocess == 'log_return':
+            window_length -= 1 # because log returns instead of actual prices
+
+        if self.network_type == 'lstm_shared':
+            forecaster = LSTMSharedForecaster(num_price_features, num_stocks, window_length, d_model=64, num_layers=3)
+            
+        forecaster.load_state_dict(torch.load(model_path))
+        forecaster_state_dict = forecaster.state_dict()
+        
+        # keep only base part
+        forecaster_state_dict = {k.replace('base', 'common.base'): v for k, v in forecaster_state_dict.items() if k.startswith('base')}
+        
+        state_dict = self.model.state_dict()
+        state_dict.update(forecaster_state_dict)
+        self.actor.load_state_dict(state_dict)
+        
+        # freeze pretrained params
+        for name, param in self.model.named_parameters():
+            if 'base.' in name:
+                param.requires_grad = False
 
     def train(self, market_test, config, wandb_inst):
 

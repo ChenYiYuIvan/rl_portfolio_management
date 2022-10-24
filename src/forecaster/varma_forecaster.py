@@ -36,7 +36,7 @@ class VARMAForecaster(BaseForecaster):
         rmse_test, pred_vec_test, truth_vec_test, self.model = self._eval(self.model, data_test)
 
         if render:
-            self.plot_all(10*pred_vec_train + 0.025, truth_vec_train, 10*pred_vec_test + 0.025, truth_vec_test)
+            self.plot_all(pred_vec_train, truth_vec_train, pred_vec_test, truth_vec_test)
 
         return rmse_train, rmse_test
 
@@ -57,7 +57,7 @@ class VARMAForecaster(BaseForecaster):
         k, m = divmod(data_train.shape[0], numfolds)
         splits = [(i+1)*k+min(i+1, m) for i in range(numfolds)]
 
-        for fold in range(numfolds-1):
+        for fold in range(3,numfolds-1):
             split_train = data_train[0:splits[fold]]
             split_test = data_train[splits[fold]:splits[fold+1]]
 

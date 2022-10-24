@@ -9,5 +9,5 @@ class RandomAgent(BaseAgent):
         super().__init__(name, env, seed)
 
 
-    def predict_action(self, obs):
+    def predict_action(self, obs, exploration):
         return self.random_action()

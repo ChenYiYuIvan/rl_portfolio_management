@@ -38,16 +38,18 @@ def main(method):
             'seed': 0,
             'env_train': f'experiments/env_train_{env_num}',
             'env_test': f'experiments/env_test_{env_num}',
+            #'env_train': f'default/env_small_train',
+            #'env_test': f'default/env_small_test',
             'agent': 'experiments/sac_12',
             'model': f'{model}_shared',
             'batch_size': 256,
-            'num_epochs': 10000,
-            'learning_rate': 1e-5,
+            'num_epochs': 2000,
+            'learning_rate': 1e-4,
             'weight_decay': 0,
             'eval_steps': 10,
-            'save_model_path': f'./checkpoints_forecaster/{model}_shared_log_return_env{env_num}',
+            'save_model_path': f'./checkpoints_forecaster/{model}_shared_log_return_env{env_num}pre',
             'model_name': f'{model}_forecaster',
-            'checkpoint_ep': 999,
+            'checkpoint_ep': 0,
         }
 
         wandb.login()
@@ -74,6 +76,7 @@ def main(method):
             forecaster.train(env_test.market, config, run)
 
             #forecaster.load_model(f'{config.save_model_path}/ep9_{config.model_name}.pth')
+            forecaster.load_pretrained(f'./checkpoints_forecaster/{model}_shared_log_return_envsmall/ep999_{config.model_name}.pth')
             forecaster.forecast_all(env_train.market)
 
 
